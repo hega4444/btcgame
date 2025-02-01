@@ -1,0 +1,64 @@
+# Dependencies
+/ClientApp/node_modules/
+/node_modules/
+/.pnp
+.pnp.js
+
+# Build outputs
+/build/
+/dist/
+/ClientApp/dist/
+*.tsbuildinfo
+
+# Environment and local config
+.env*
+!.env.example
+config.local.*
+
+# IDE and editors
+.idea/
+.vscode/
+.vs/
+*.sublime-*
+*~
+*.swp
+*.swo
+
+# Logs and debugging
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.cache
+coverage/
+.coverage
+htmlcov/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+.eggs/
+.tox/
+.coverage.*
+.env/
+.venv/
+venv/
+ENV/
+
+# OS generated
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Project specific
+/public/assets/
+/ClientApp/public/assets/
+instance/
+*.db
+*.sqlite*
