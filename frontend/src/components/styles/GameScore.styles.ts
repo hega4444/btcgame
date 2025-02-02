@@ -1,28 +1,48 @@
-export const playerStyle = {
-  color: '#2e7d32'
-};
-
-export const scoreContainer = {
-  color: '#2e7d32',
+export const playerStyle: React.CSSProperties = {
   display: 'flex',
-  gap: '4px',
-  alignItems: 'center'
+  alignItems: 'center',
+  gap: '10px',
+  fontSize: '16px',
+  color: '#2e7d32',
+  fontFamily: "'Press Start 2P', cursive",
+  textShadow: '2px 2px 0px rgba(0,0,0,0.5)'
 };
 
-export const scoreLabel = (isAnimating: boolean) => ({
-  display: 'inline-block',
-  animation: isAnimating 
-    ? `scorePopup 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)` 
-    : 'none'
+export const scoreContainer = (isAnimating: boolean): React.CSSProperties => ({
+  display: 'flex',
+  alignItems: 'center',
+  gap: '10px',
+  fontSize: '16px',
+  color: '#2e7d32',
+  fontFamily: "'Press Start 2P', cursive",
+  textShadow: '2px 2px 0px rgba(0,0,0,0.5)',
+  transform: isAnimating ? 'scale(1.1)' : 'scale(1)',
+  transition: 'transform 0.3s ease'
 });
 
-export const scoreDigit = (isAnimating: boolean, index: number) => ({
+export const scoreLabel = () => ({
+  color: '#2e7d32',
+  display: 'inline-block'
+});
+
+export const scoreDigit = () => ({
   display: 'inline-block',
-  animation: isAnimating 
-    ? `scorePopup 0.5s ${index * 0.1}s cubic-bezier(0.175, 0.885, 0.32, 1.275)` 
-    : 'none'
+  color: '#2e7d32'
 });
 
 export const digitsContainer = {
-  display: 'flex'
+  display: 'flex',
+  gap: '2px'
+};
+
+export const usernameInput: React.CSSProperties = {
+  background: 'rgba(0, 0, 0, 0.7)',
+  border: '1px solid rgba(255, 255, 255, 0.3)',
+  borderRadius: '4px',
+  color: '#2e7d32',
+  padding: '4px 8px',
+  fontFamily: "'Press Start 2P', cursive",
+  fontSize: '16px',
+  width: '150px',
+  outline: 'none'
 }; 

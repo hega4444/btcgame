@@ -23,30 +23,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       };
     }
 
-    // Get user's bet results
-    const resultsCollection = await getCollection('betResults');
-    const results = await resultsCollection.find({ userId: clientId }).toArray();
-
-    // Calculate stats
-    const totalBets = results.length;
-    const wins = results.filter(r => r.won).length;
-    const losses = totalBets - wins;
-    const winRate = totalBets > 0 ? (wins / totalBets * 100) : 0;
-    const totalProfit = results.reduce((sum, r) => sum + r.profit, 0);
-
-    // Get user's rank
-    const allUsers = await usersCollection.find().toArray();
-    const userRanks = allUsers
-      .map(u => ({
-        clientId: u.clientId,
-        totalProfit: results
-          .filter(r => r.userId === u.clientId)
-          .reduce((sum, r) => sum + r.profit, 0)
-      }))
-      .sort((a, b) => b.totalProfit - a.totalProfit);
-
-    const rank = userRanks.findIndex(u => u.clientId === clientId) + 1;
-
+    // Return just what we need
     return {
       statusCode: 200,
       headers: {
@@ -55,13 +32,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       },
       body: JSON.stringify({
         username: user.username,
-        totalBets,
-        wins,
-        losses,
-        winRate: Math.round(winRate * 100) / 100,
-        totalProfit,
-        rank,
-        totalPlayers: allUsers.length
+        score: user.score
       })
     };
 

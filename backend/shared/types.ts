@@ -12,6 +12,9 @@ export interface UserProfile {
   username: string;
   createdAt: Date;
   lastUpdated: Date;
+  wins: number;
+  losses: number;
+  score: number;
 }
 
 export interface Bet {
@@ -33,15 +36,6 @@ export interface BetResult {
   initialPrice: number;
   finalPrice: number;
   timestamp: Date;
-}
-
-export interface UserScore {
-  _id?: ObjectId;
-  userId: string;
-  username: string;
-  wins: number;
-  losses: number;
-  lastUpdated: Date;
 }
 
 export interface BetStatusResponse {

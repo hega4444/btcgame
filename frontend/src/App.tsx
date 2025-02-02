@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Container,
   Dialog,
@@ -24,21 +24,31 @@ import {
 import { api } from './services/api';
 import { AudioButton } from './components/AudioButton';
 
+interface PriceData {
+  timestamp: string;
+  price: number;
+}
+
 // Debug logging for environment variables
 console.log('Environment Variables:', {
   VITE_USE_MOCK_DATA: import.meta.env.VITE_USE_MOCK_DATA,
   VITE_API_URL: import.meta.env.VITE_API_URL,
+  VITE_FORGET_USER: import.meta.env.VITE_FORGET_USER,
   DEV: import.meta.env.DEV,
   MODE: import.meta.env.MODE
 });
+
+// Add this interface near the top with other interfaces
+interface LeaderboardEntry {
+  username: string;
+  score: number;
+}
 
 const App: React.FC = () => {
   const [showDialog, setShowDialog] = useState(false);
   const [username, setUsername] = useState('');
   const [hasAccepted, setHasAccepted] = useState(false);
   const [gameStarted, setGameStarted] = useState(false);
-  const [devMode] = useState(() => localStorage.getItem('btcGameDevMode') === 'true');
-  const ALWAYS_SHOW_DIALOG = false; // Dev flag - set to false for production
   const [showPlayButton, setShowPlayButton] = useState(true);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [prices, setPrices] = useState<PriceData[]>([]);
@@ -57,6 +67,20 @@ const App: React.FC = () => {
   const [showSettings, setShowSettings] = useState(false);
   const [currency, setCurrency] = useState('USD');
 
+  // Replace the mocked leaderboard data with state
+  const [leaderboardData, setLeaderboardData] = useState<LeaderboardEntry[]>([]);
+  const [isLoadingLeaderboard, setIsLoadingLeaderboard] = useState(false);
+
+  // Add state for clientId if not already present
+  const [clientId] = useState(() => {
+    const saved = localStorage.getItem('btcGameClientId');
+    if (saved) return saved;
+    
+    const newId = crypto.randomUUID();
+    localStorage.setItem('btcGameClientId', newId);
+    return newId;
+  });
+
   // Add this effect to handle window resizing
   useEffect(() => {
     const handleResize = () => {
@@ -68,21 +92,23 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    // In dev mode, clear localStorage and reset states
-    if (devMode) {
+    const shouldForgetUser = import.meta.env.VITE_FORGET_USER === 'true';
+    
+    // If FORGET_USER is true, clear localStorage
+    if (shouldForgetUser) {
       localStorage.removeItem('btcGameAccepted');
       localStorage.removeItem('btcGameUsername');
+      localStorage.removeItem('btcGameClientId');
       setHasAccepted(false);
       setUsername('');
       return;
     }
 
-    const accepted = localStorage.getItem('btcGameAccepted');
+    // Just restore the username if available
     const savedUsername = localStorage.getItem('btcGameUsername');
-    console.log('Initial load - accepted:', accepted, 'username:', savedUsername);
-    if (!ALWAYS_SHOW_DIALOG && accepted === 'true' && savedUsername) {
-      setHasAccepted(true);
+    if (savedUsername) {
       setUsername(savedUsername);
+      setHasAccepted(true);
     }
   }, []);
 
@@ -128,13 +154,30 @@ const App: React.FC = () => {
     console.log('Play clicked');
     setShowPlayButton(false);
     
-    if (!hasAccepted) {
+    const shouldForgetUser = import.meta.env.VITE_FORGET_USER === 'true';
+    const savedClientId = localStorage.getItem('btcGameClientId');
+    const savedUsername = localStorage.getItem('btcGameUsername');
+    const accepted = localStorage.getItem('btcGameAccepted');
+
+    console.log('Play clicked - checking state:', {
+      shouldForgetUser,
+      savedClientId,
+      savedUsername,
+      accepted,
+      hasAccepted
+    });
+    
+    // If we have saved credentials and FORGET_USER is false, start game directly
+    if (!shouldForgetUser && savedClientId && savedUsername && accepted === 'true') {
+      console.log('Starting game with saved credentials');
+      setGameStarted(true);
+    } else {
+      // Otherwise show the dialog
+      console.log('Showing dialog for new user registration');
       setShowDialog(true);
       setTimeout(() => {
         usernameInputRef.current?.focus();
       }, 100);
-    } else {
-      startGame();
     }
   };
 
@@ -143,6 +186,9 @@ const App: React.FC = () => {
 
     try {
       await api.registerUser(username);
+      localStorage.setItem('btcGameAccepted', 'true');
+      localStorage.setItem('btcGameUsername', username);
+      localStorage.setItem('btcGameClientId', clientId);
       setHasAccepted(true);
       setShowDialog(false);
       setGameStarted(true);
@@ -150,12 +196,6 @@ const App: React.FC = () => {
       console.error('Error registering user:', error);
       alert('Failed to register user. Please try again.');
     }
-  };
-
-  const startGame = () => {
-    console.log('Starting game...');
-    setGameStarted(true);
-    // Additional game logic will go here
   };
 
   const handleClose = () => {
@@ -168,21 +208,6 @@ const App: React.FC = () => {
   const handleUsernameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setUsername(e.target.value);
   }, []);
-
-  // Mocked leaderboard data
-  const leaderboardData = useMemo(() => [
-    { username: "CryptoKing", score: 2500 },
-    { username: "BitcoinQueen", score: 2350 },
-    { username: "SatoshiLover", score: 2200 },
-    { username: "BlockMaster", score: 2050 },
-    { username: "CoinHunter", score: 1900 },
-    { username: "HashRider", score: 1800 },
-    { username: "ChainGuru", score: 1700 },
-    { username: "BTCWizard", score: 1600 },
-    { username: "MoonHolder", score: 1500 },
-    { username: "DiamondHands", score: 1400 }
-  ], []);
-
 
   // Add this handler function
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -244,6 +269,23 @@ const App: React.FC = () => {
     if (loseSoundRef.current) loseSoundRef.current.volume = 0.3;
   }, []);
 
+  // Update the leaderboard click handler to fetch data
+  const handleLeaderboardClick = async () => {
+    setShowLeaderboard(true);
+    setIsLoadingLeaderboard(true);
+    
+    try {
+      const data = await api.fetchLeaderboard();
+      setLeaderboardData(data);
+    } catch (error) {
+      console.error('Error fetching leaderboard:', error);
+      // Fallback to empty array or show error message
+      setLeaderboardData([]);
+    } finally {
+      setIsLoadingLeaderboard(false);
+    }
+  };
+
   return (
     <Container>
       <StyledGameContainer
@@ -251,6 +293,7 @@ const App: React.FC = () => {
         gameStarted={gameStarted}
         currency={currency}
         username={username}
+        setUsername={setUsername}
         isMobile={isMobile}
         showPlayButton={showPlayButton}
         handlePlay={handlePlay}
@@ -261,6 +304,8 @@ const App: React.FC = () => {
         showSettings={showSettings}
         setShowSettings={setShowSettings}
         setCurrency={setCurrency}
+        onLeaderboardClick={handleLeaderboardClick}
+        clientId={clientId}
       />
       
       {showDialog && (
@@ -296,13 +341,19 @@ const App: React.FC = () => {
         <LeaderboardDialog>
           <CloseButton onClick={() => setShowLeaderboard(false)}>×</CloseButton>
           <h2>TOP 10 PLAYERS</h2>
-          {leaderboardData.map((player, index) => (
-            <LeaderboardItem key={index}>
-              <span>{index + 1}.</span>
-              <span>{player.username}</span>
-              <span>{player.score}</span>
-            </LeaderboardItem>
-          ))}
+          {isLoadingLeaderboard ? (
+            <div>Loading...</div>
+          ) : leaderboardData.length > 0 ? (
+            leaderboardData.map((player, index) => (
+              <LeaderboardItem key={index}>
+                <span>{index + 1}.</span>
+                <span>{player.username}</span>
+                <span>{player.score}</span>
+              </LeaderboardItem>
+            ))
+          ) : (
+            <div>No leaderboard data available</div>
+          )}
         </LeaderboardDialog>
       )}
 

@@ -44,41 +44,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       };
     }
 
-    // Check if we should force alternate results
-    if (FORCE_ALTERNATE) {
-      // Toggle win/lose and mark bet as processed
-      lastWasWin = !lastWasWin;
-      processedBets.add(betId);
-      
-      const mockResult: BetResult = {
-        betId: betId,
-        userId: 'mock-user-id',
-        won: lastWasWin,
-        profit: lastWasWin ? 1 : -1,
-        initialPrice: 40000,
-        finalPrice: lastWasWin ? 41000 : 39000,
-        timestamp: new Date()
-      };
-
-      console.log(`🎮 DEV MODE: Forcing ${lastWasWin ? 'WIN' : 'LOSE'} result for bet ${betId}`);
-
-      return {
-        statusCode: 200,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*'
-        },
-        body: JSON.stringify({
-          status: 'completed',
-          result: mockResult
-        })
-      };
-    }
-
-    // Convert string ID to ObjectId
+    // Convert string ID to ObjectId and get bet details
     const objectId = new ObjectId(betId);
-
-    // Get bet details
     const betsCollection = await getCollection('bets');
     const bet = await betsCollection.findOne({ _id: objectId });
 
@@ -92,11 +59,14 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     // Get username for logging
     const usersCollection = await getCollection('users');
     const user = await usersCollection.findOne({ clientId: bet.userId });
+    
+    // Log user lookup in one line
+    console.log(`👤 User lookup: ${user?.username || 'Unknown'} (${bet.userId})`);
+
     const username = user?.username || 'Unknown User';
 
     // If bet is still active, check if it should be completed
     if (bet.status === 'active') {
-      // Check if bet duration has elapsed
       const now = new Date();
       const betTime = new Date(bet.timestamp);
       const betAge = now.getTime() - betTime.getTime();
@@ -104,39 +74,40 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       // Only complete the bet if enough time has passed
       if (betAge >= BET_DURATION) {
         try {
-          // Get current price
-          const pricesCollection = await getCollection('prices');
-          const currentPrice = await pricesCollection
-            .find({ 
-              currency: bet.currency.toLowerCase()
-            })
-            .sort({ timestamp: -1 })
-            .limit(1)
-            .toArray();
+          let won: boolean;
+          let finalPrice: number;
 
-          if (!currentPrice.length) {
-            throw new Error('No current price available');
+          // Determine win/loss - either forced or real
+          if (FORCE_ALTERNATE) {
+            lastWasWin = !lastWasWin;
+            processedBets.add(betId);
+            won = lastWasWin;
+            finalPrice = won ? bet.priceAtBet + 1000 : bet.priceAtBet - 1000;
+            console.log(`🎮 DEV MODE: Forcing ${won ? 'WIN' : 'LOSE'} result for bet ${betId}`);
+          } else {
+            // Get real price and determine result
+            const pricesCollection = await getCollection('prices');
+            const currentPrice = await pricesCollection
+              .find({ currency: bet.currency.toLowerCase() })
+              .sort({ timestamp: -1 })
+              .limit(1)
+              .toArray();
+
+            if (!currentPrice.length) {
+              throw new Error('No current price available');
+            }
+
+            finalPrice = currentPrice[0].price;
+            const priceChange = finalPrice - bet.priceAtBet;
+            won = (bet.betType === 'up' && priceChange > 0) || 
+                  (bet.betType === 'down' && priceChange < 0);
           }
 
-          const finalPrice = currentPrice[0].price;
-          const priceChange = finalPrice - bet.priceAtBet;
-          const won = (bet.betType === 'up' && priceChange > 0) || 
-                     (bet.betType === 'down' && priceChange < 0);
-
-          // Log the result in one line
-          console.log(`🎯 Result [${bet._id}]: ${username}'s ${bet.betType.toUpperCase()} bet ${won ? '✨ WON ✨' : '❌ LOST ❌'} (${formatPrice(bet.priceAtBet)} → ${formatPrice(finalPrice)})`);
-
-          // Update bet status FIRST - before creating result
-          const updateResult = await betsCollection.updateOne(
+          // Update bet status
+          await betsCollection.updateOne(
             { _id: objectId },
             { $set: { status: 'completed' } }
           );
-
-          if (updateResult.modifiedCount === 0) {
-            throw new Error('Failed to update bet status');
-          }
-
-          console.log(`✅ Bet ${objectId} marked as completed`);
 
           // Create and save bet result
           const betResult: BetResult = {
@@ -152,20 +123,24 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           const resultsCollection = await getCollection('betResults');
           await resultsCollection.insertOne(betResult);
 
-          console.log(`💾 Bet result saved for ${objectId}`);
-          console.log(`🎯 Final Result - Won: ${won}, Price Change: ${priceChange}`);
-
-          // Update user stats
-          await usersCollection.updateOne(
-            { userId: bet.userId },
+          // Update user stats with better error handling
+          const userUpdateResult = await usersCollection.updateOne(
+            { clientId: bet.userId },
             { 
               $inc: { 
                 wins: won ? 1 : 0,
-                losses: won ? 0 : 1
+                losses: won ? 0 : 1,
+                score: won ? betResult.profit : Math.max(-(user?.score || 0), betResult.profit)
               },
               $set: { lastUpdated: new Date() }
             }
           );
+
+          if (userUpdateResult.matchedCount === 0) {
+            console.error(`❌ Failed to update stats: No user found with clientId ${bet.userId}`);
+          } else {
+            console.log(`📊 Stats update for ${username}: ${won ? 'Won' : 'Lost'} (score: ${won ? '+1' : '-1'})`);
+          }
 
           return {
             statusCode: 200,

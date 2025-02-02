@@ -4,12 +4,16 @@ import { MongoClient } from 'mongodb';
 
 export const handler: APIGatewayProxyHandler = async (event) => {
   try {
-    const userId = event.pathParameters?.userId;
+    const clientId = event.pathParameters?.clientId;
 
-    if (!userId) {
+    if (!clientId) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: 'User ID is required' })
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        },
+        body: JSON.stringify({ error: 'Client ID is required' })
       };
     }
 
@@ -17,46 +21,44 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     const betsCollection = await getCollection('bets');
     const resultsCollection = await getCollection('betResults');
 
-    // Get MongoDB client from the collection's parent
-    const client = (usersCollection as any).s.db.client as MongoClient;
-    const session = client.startSession();
+    const user = await usersCollection.findOne({ clientId });
+    console.log('🗑️ Deleting user', user?.username);
 
-    try {
-      // Start transaction
-      session.startTransaction();
-
-      // Delete user data
-      await usersCollection.deleteOne({ clientId: userId }, { session });
-      await betsCollection.deleteMany({ userId }, { session });
-      await resultsCollection.deleteMany({ userId }, { session });
-
-      // Commit transaction
-      await session.commitTransaction();
-
+    if (!user) {
       return {
-        statusCode: 200,
+        statusCode: 404,
         headers: {
           'Content-Type': 'application/json',
           'Access-Control-Allow-Origin': '*'
         },
-        body: JSON.stringify({
-          message: 'User data deleted successfully'
-        })
+        body: JSON.stringify({ error: 'User not found' })
       };
-
-    } catch (error) {
-      // Abort transaction on error
-      await session.abortTransaction();
-      throw error;
-    } finally {
-      // End session
-      await session.endSession();
     }
+
+    // Delete user data without transaction
+    await usersCollection.deleteOne({ clientId });
+    await betsCollection.deleteMany({ clientId });
+    await resultsCollection.deleteMany({ clientId });
+
+    return {
+      statusCode: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      },
+      body: JSON.stringify({
+        message: 'User data deleted successfully'
+      })
+    };
 
   } catch (error) {
     console.error('Error deleting user:', error);
     return {
       statusCode: 500,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      },
       body: JSON.stringify({ error: 'Failed to delete user data' })
     };
   }

@@ -40,26 +40,21 @@ interface BettingInterfaceProps {
   betPrice: number | null;
   timer: number | null;
   username: string;
+  clientId: string;
   currency: string;
   prices: Array<{timestamp: string; price: number}>;
   setIsBetting: (value: boolean) => void;
   setCurrentBet: (value: 'up' | 'down' | null) => void;
   setBetPrice: (value: number | null) => void;
   setTimer: React.Dispatch<React.SetStateAction<number | null>>;
-  onBetComplete: (result: {
-    won: boolean;
-    profit: number;
-    initialPrice: number;
-    finalPrice: number;
-    timestamp: string;
-  }) => void;
   winSoundRef: React.RefObject<HTMLAudioElement | null>;
   loseSoundRef: React.RefObject<HTMLAudioElement | null>;
   score: number;
   setScore: (score: number) => void;
-  gameStatsRef: React.RefObject<HTMLDivElement>;
-  updateScoreWithAnimation: (newScore: number) => void;
+  updateScoreWithAnimation: (score: number) => void;
   gameStarted: boolean;
+  onWin: () => void;
+  gameStatsRef: React.RefObject<HTMLDivElement>;
 }
 
 export const BettingInterface: React.FC<BettingInterfaceProps> = ({
@@ -68,6 +63,7 @@ export const BettingInterface: React.FC<BettingInterfaceProps> = ({
   betPrice,
   timer,
   username,
+  clientId,
   currency,
   prices,
   setIsBetting,
@@ -80,6 +76,7 @@ export const BettingInterface: React.FC<BettingInterfaceProps> = ({
   setScore,
   updateScoreWithAnimation,
   gameStarted,
+  onWin,
 }) => {
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
   const [showWinMessage, setShowWinMessage] = useState(false);
@@ -90,6 +87,8 @@ export const BettingInterface: React.FC<BettingInterfaceProps> = ({
 
   const handlePlaceBet = async (type: 'up' | 'down') => {
     try {
+      console.log('Placing bet:', { type, username, clientId, currency });
+
       // Clear any existing timers
       if (countdownIntervalRef.current) {
         clearInterval(countdownIntervalRef.current);
@@ -105,7 +104,7 @@ export const BettingInterface: React.FC<BettingInterfaceProps> = ({
       setTimer(BET_TIMER / 1000);
 
       const data = await api.placeBet({
-        userId: 'client-id', // This should come from a proper source
+        userId: clientId,
         username,
         currency,
         betType: type,
@@ -157,6 +156,9 @@ export const BettingInterface: React.FC<BettingInterfaceProps> = ({
         winSoundRef.current.currentTime = 0;
         winSoundRef.current.play().catch(console.error);
       }
+      
+      // Show winning coin animation
+      onWin();
 
       // Animate score after a delay
       setTimeout(() => {

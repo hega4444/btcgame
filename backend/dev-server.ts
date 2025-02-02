@@ -179,12 +179,13 @@ app.get('/api/user/:userId/stats', async (req, res) => {
 app.delete('/api/user/:userId', async (req, res) => {
   const result = await forgetUserHandler(
     createAPIGatewayEvent({
-      pathParameters: { userId: req.params.userId },
+      pathParameters: { clientId: req.params.userId },
       httpMethod: 'DELETE'
     }),
     mockContext,
     () => {}
   ) as APIGatewayProxyResult;
+  
   res.status(result.statusCode).json(JSON.parse(result.body));
 });
 

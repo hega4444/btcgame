@@ -33,6 +33,11 @@ export interface RegisterUserResponse {
   message: string;
 }
 
+export interface LeaderboardEntry {
+  username: string;
+  score: number;
+}
+
 export const api = {
   async fetchPrices(currency: string): Promise<PriceData[]> {
     try {
@@ -54,24 +59,49 @@ export const api = {
     }
   },
 
-  async registerUser(username: string): Promise<RegisterUserResponse> {
-    const response = await fetch(`${API_URL}/api/register-user`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ 
-        username,
-        clientId: getClientId()
-      })
+  async registerUser(username: string, clientId?: string): Promise<RegisterUserResponse> {
+    console.log('🚀 Starting registration request:', { 
+      username, 
+      clientId: clientId || getClientId(),
+      url: `${API_URL}/api/register-user`
     });
+    
+    try {
+      const response = await fetch(`${API_URL}/api/register-user`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          username,
+          clientId: clientId || getClientId()
+        })
+      });
 
-    if (!response.ok) {
-      const data = await response.json();
-      throw new Error(data.message || 'Failed to register user');
+      console.log('📥 Raw response:', {
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers.entries())
+      });
+
+      const responseText = await response.text();
+      console.log('📄 Response text:', responseText);
+
+      if (!response.ok) {
+        throw new Error(`Server responded with ${response.status}: ${responseText}`);
+      }
+
+      const result = JSON.parse(responseText);
+      console.log('✅ Registration successful:', result);
+      return result;
+    } catch (error: any) {
+      console.error('❌ Registration error:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      });
+      throw error;
     }
-
-    return response.json();
   },
 
   async placeBet(params: {
@@ -101,5 +131,58 @@ export const api = {
     const response = await fetch(`${API_URL}/api/bet/${betId}`);
     if (!response.ok) throw new Error('Failed to check bet status');
     return response.json();
-  }
+  },
+
+  fetchLeaderboard: async (): Promise<LeaderboardEntry[]> => {
+    try {
+      const response = await fetch(`${API_URL}/api/leaderboard`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch leaderboard');
+      }
+      const data = await response.json();
+      return data.leaderboard;
+    } catch (error) {
+      console.error('Error fetching leaderboard:', error);
+      return [];
+    }
+  },
+
+  getUserStats: async (clientId: string) => {
+    try {
+      console.log('�� Fetching stats for clientId:', clientId);
+      const response = await fetch(`${API_URL}/api/user/${clientId}/stats`);
+      
+      const responseText = await response.text();
+      console.log('📥 Raw response:', responseText);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch user stats: ${response.status} ${responseText}`);
+      }
+      
+      const data = JSON.parse(responseText);
+      console.log('📊 Parsed user stats:', data);
+      return data;
+    } catch (error) {
+      console.error('Failed to fetch user stats:', error);
+      return { score: 0, wins: 0, losses: 0 };
+    }
+  },
+
+  forgetUser: async (clientId: string) => {
+    const response = await fetch(`${API_URL}/api/user/${clientId}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    });
+    
+    const responseText = await response.text();
+    console.log('🗑️ Delete user:', { clientId, status: response.status });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to forget user: ${responseText}`);
+    }
+    
+    return JSON.parse(responseText);
+  },
 }; 

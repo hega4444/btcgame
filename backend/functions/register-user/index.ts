@@ -13,7 +13,6 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       };
     }
 
-    // Validate username
     if (username.length < 3 || username.length > 20) {
       return {
         statusCode: 400,
@@ -24,9 +23,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     const usersCollection = await getCollection('users');
-
-    // Check if username is already taken
     const existingUsername = await usersCollection.findOne({ username });
+
     if (existingUsername) {
       return {
         statusCode: 409,
@@ -34,11 +32,10 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       };
     }
 
-    // Check if clientId already exists
     const existingClient = await usersCollection.findOne({ clientId });
+
     if (existingClient) {
-      // Update username for existing client
-      await usersCollection.updateOne(
+      const updateResult = await usersCollection.updateOne(
         { clientId },
         { 
           $set: { 
@@ -47,6 +44,12 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           }
         }
       );
+
+      if (updateResult.matchedCount === 0) {
+        throw new Error('Failed to update user record');
+      }
+
+      console.log(`✅ Updated username for ${clientId}: ${existingClient.username} → ${username}`);
 
       return {
         statusCode: 200,
@@ -62,15 +65,18 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       };
     }
 
-    // Create new user profile
     const userProfile: UserProfile = {
       clientId,
       username,
       createdAt: new Date(),
-      lastUpdated: new Date()
+      lastUpdated: new Date(),
+      wins: 0,
+      losses: 0,
+      score: 0
     };
 
     await usersCollection.insertOne(userProfile);
+    console.log(`✨ New user registered: ${username} (${clientId})`);
 
     return {
       statusCode: 200,
@@ -86,7 +92,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     };
 
   } catch (error) {
-    console.error('Error registering user:', error);
+    console.error('💥 Error registering user:', error);
     return {
       statusCode: 500,
       body: JSON.stringify({ error: 'Failed to register user' })

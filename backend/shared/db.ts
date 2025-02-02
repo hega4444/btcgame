@@ -24,17 +24,27 @@ export const connectToDatabase = async (): Promise<Db> => {
   }
 
   try {
-    console.log('Connecting to MongoDB...', { uri, isLocal });
+    // Add detailed connection logging
+    console.log('🔌 MongoDB Connection Details:', { 
+      uri,
+      isLocal,
+      NODE_ENV: process.env.NODE_ENV
+    });
+
     client = await MongoClient.connect(uri);
     const dbName = isLocal ? 'btc-game-dev' : process.env.MONGODB_DB_NAME;
     
-    console.log('Connected to MongoDB, using database:', dbName);
+    console.log('📚 Connected to MongoDB Database:', dbName);
     const db = client.db(dbName);
+    
+    // List all collections in the database
+    const collections = await db.listCollections().toArray();
+    console.log('📑 Available collections:', collections.map(c => c.name));
     
     cachedDb = db;
     return db;
   } catch (error) {
-    console.error('MongoDB connection error:', error);
+    console.error('💥 MongoDB connection error:', error);
     throw error;
   }
 };

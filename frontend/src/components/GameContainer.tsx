@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect, useCallback } from 'react';
 import { GameContainer as StyledGameContainer, Box } from '../styles';
 import { GameBoard } from './GameBoard';
 import { GameScore } from './GameScore';
@@ -19,6 +19,7 @@ import {
   resetScoreButton
 } from './styles/App.styles';
 import { BettingInterface } from './BettingInterface';
+import { api } from '../services/api';
 
 type ScoreDigit = {
   value: string;
@@ -26,27 +27,12 @@ type ScoreDigit = {
   isAnimating: boolean;
 };
 
-type CoinAnimation = {
-  id: number;
-  startX: number;
-  startY: number;
-  endX: number;
-  endY: number;
-};
-
-type BubbleType = {
-  key: number;
-  size: number;
-  duration: number;
-  delay: number;
-  left: number;
-};
-
 interface GameContainerProps {
   prices: Array<{timestamp: string; price: number}>;
   gameStarted: boolean;
   currency: string;
   username: string;
+  clientId: string;
   isMobile: boolean;
   showPlayButton: boolean;
   handlePlay: () => void;
@@ -57,6 +43,8 @@ interface GameContainerProps {
   showSettings: boolean;
   setShowSettings: (show: boolean) => void;
   setCurrency: (currency: string) => void;
+  onLeaderboardClick: () => void;
+  setUsername: (username: string) => void;
 }
 
 export const GameContainer: React.FC<GameContainerProps> = ({
@@ -64,101 +52,34 @@ export const GameContainer: React.FC<GameContainerProps> = ({
   gameStarted,
   currency,
   username,
+  clientId,
   isMobile,
   showPlayButton,
   handlePlay,
-  isMusicPlaying,
-  setIsMusicPlaying,
   winSoundRef,
   loseSoundRef,
   showSettings,
   setShowSettings,
   setCurrency,
+  onLeaderboardClick,
+  setUsername,
 }) => {
-  const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [isBetting, setIsBetting] = useState(false);
   const [currentBet, setCurrentBet] = useState<'up' | 'down' | null>(null);
   const [betPrice, setBetPrice] = useState<number | null>(null);
   const [timer, setTimer] = useState<number | null>(null);
-  const [showWinMessage, setShowWinMessage] = useState(false);
-  const [isBetBoxHovered, setIsBetBoxHovered] = useState(false);
-  const [lastWasWin, setLastWasWin] = useState(true);
   const [scoreDigits, setScoreDigits] = useState<ScoreDigit[]>([{ value: '0', key: 0, isAnimating: false }]);
-  const [winningCoins, setWinningCoins] = useState<CoinAnimation[]>([]);
+  const [winningCoins, setWinningCoins] = useState<Array<{
+    id: number;
+    startX: number;
+    startY: number;
+  }>>([]);
   const gameStatsRef = useRef<HTMLDivElement>(null);
   const [score, setScore] = useState(0);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
-  const handleResetScore = () => {
-    setScore(0);
-  };
-
-  const bubbles = useMemo(() => {
-    return Array.from({ length: 15 }, (_, i) => ({
-      size: Math.random() * 50 + 20,
-      duration: Math.random() * 10 + 15,
-      delay: Math.random() * -20,
-      left: Math.random() * 100,
-      key: i
-    }));
-  }, []);
-
-  const handleBetComplete = (result: BetResult) => {
-    console.log('Handling bet completion:', result);
-    
-    setIsBetting(false);
-    setCurrentBet(null);
-    setShowWinMessage(true);
-    setLastWasWin(!result.won);
-    
-    if (result.won) {
-      const newScore = score + result.profit;
-      setScore(newScore);
-      
-      if (winSoundRef.current) {
-        winSoundRef.current.currentTime = 0;
-        winSoundRef.current.play().catch(console.error);
-      }
-      
-      if (gameStatsRef.current) {
-        const rect = gameStatsRef.current.getBoundingClientRect();
-        const newCoin: CoinAnimation = {
-          id: Date.now() + Math.random(),
-          startX: window.innerWidth / 2,
-          startY: window.innerHeight * 0.8,
-          endX: rect.left + rect.width / 2,
-          endY: rect.top + rect.height / 2
-        };
-
-        setWinningCoins(prev => [...prev, newCoin]);
-
-        setTimeout(() => {
-          setWinningCoins(prev => prev.filter(coin => coin.id !== newCoin.id));
-        }, 1000);
-      }
-
-      setTimeout(() => {
-        updateScoreWithAnimation(newScore);
-      }, 500);
-    } else {
-      const newScore = Math.max(0, score - Math.abs(result.profit));
-      setScore(newScore);
-      
-      if (loseSoundRef.current) {
-        loseSoundRef.current.currentTime = 0;
-        loseSoundRef.current.play().catch(console.error);
-      }
-      
-      updateScoreWithAnimation(newScore);
-    }
-
-    setTimeout(() => {
-      setShowWinMessage(false);
-      setTimer(null);
-      setBetPrice(null);
-    }, 3000);
-  };
-
-  const updateScoreWithAnimation = (newScore: number) => {
+  const updateScoreWithAnimation = useCallback((newScore: number) => {
+    console.log('🎯 Updating score with animation:', newScore);
     const digits = newScore.toString().split('');
     const now = Date.now();
     
@@ -177,6 +98,81 @@ export const GameContainer: React.FC<GameContainerProps> = ({
         isAnimating: false
       })));
     }, 1000);
+  }, []);
+
+  useEffect(() => {
+    const fetchUserScore = async () => {
+      if (!gameStarted || !clientId) {
+        console.log('⏳ Waiting for game to start or clientId', { gameStarted, clientId });
+        return;
+      }
+      
+      try {
+        console.log('🎮 Game started, fetching score for:', clientId);
+        const userStats = await api.getUserStats(clientId);
+        console.log('📈 Fetched user stats:', userStats);
+
+        if (userStats && typeof userStats.score === 'number') {
+          console.log('✅ Setting score to:', userStats.score);
+          setScore(userStats.score);
+          updateScoreWithAnimation(userStats.score);
+        } else {
+          console.warn('❌ Invalid score in user stats:', userStats);
+        }
+      } catch (error) {
+        console.error('💥 Failed to fetch user score:', error);
+      }
+    };
+
+    fetchUserScore();
+  }, [gameStarted, clientId, updateScoreWithAnimation]);
+
+  const handleResetScore = () => {
+    setShowConfirmDialog(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    try {
+      await api.forgetUser(clientId);
+      localStorage.removeItem('btcGameAccepted');
+      localStorage.removeItem('btcGameUsername');
+      localStorage.removeItem('btcGameClientId');
+      setScore(0);
+      setShowSettings(false);
+      setShowConfirmDialog(false);
+      window.location.reload();
+    } catch (error) {
+      console.error('Failed to delete user data:', error);
+      alert('Failed to delete user data. Please try again.');
+    }
+  };
+
+  const bubbles = useMemo(() => {
+    return Array.from({ length: 15 }, (_, i) => ({
+      size: Math.random() * 50 + 20,
+      duration: Math.random() * 10 + 15,
+      delay: Math.random() * -20,
+      left: Math.random() * 100,
+      key: i
+    }));
+  }, []);
+
+  const showWinningCoin = () => {
+    const newCoin = {
+      id: Date.now(),
+      startX: window.innerWidth / 2,
+      startY: window.innerHeight * 0.8,
+    };
+    
+    setWinningCoins(prev => [...prev, newCoin]);
+    
+    setTimeout(() => {
+      setWinningCoins(prev => prev.filter(coin => coin.id !== newCoin.id));
+    }, 1000);
+  };
+
+  const handleUsernameChange = (newUsername: string) => {
+    setUsername(newUsername);
   };
 
   return (
@@ -193,11 +189,13 @@ export const GameContainer: React.FC<GameContainerProps> = ({
           <>
             <GameScore 
               username={username}
+              clientId={clientId}
               scoreDigits={scoreDigits}
               gameStatsRef={gameStatsRef}
+              onUsernameChange={handleUsernameChange}
             />
 
-            <TopButton onClick={() => setShowLeaderboard(true)} style={{ color: '#2e7d32' }}>
+            <TopButton onClick={onLeaderboardClick} style={{ color: '#2e7d32' }}>
               TOP 10 <br />PLAYERS
             </TopButton>
 
@@ -212,6 +210,7 @@ export const GameContainer: React.FC<GameContainerProps> = ({
               betPrice={betPrice}
               timer={timer}
               username={username}
+              clientId={clientId}
               currency={currency}
               prices={prices}
               setIsBetting={setIsBetting}
@@ -225,14 +224,15 @@ export const GameContainer: React.FC<GameContainerProps> = ({
               winSoundRef={winSoundRef}
               loseSoundRef={loseSoundRef}
               gameStarted={gameStarted}
+              onWin={showWinningCoin}
             />
 
             <WinLoseMessage 
-              showWinMessage={showWinMessage}
+              showWinMessage={false}
               timer={timer}
-              lastWasWin={lastWasWin}
               winSoundRef={winSoundRef}
               loseSoundRef={loseSoundRef}
+              lastWasWin={true}
             />
 
             {winningCoins.map(coin => (
@@ -290,7 +290,51 @@ export const GameContainer: React.FC<GameContainerProps> = ({
                   onClick={handleResetScore}
                   style={resetScoreButton}
                 >
-                  RESET SCORE
+                  DELETE MY DATA AND SCORE
+                </button>
+              </div>
+            </div>
+          </LeaderboardDialog>
+        )}
+
+        {showConfirmDialog && (
+          <LeaderboardDialog>
+            <CloseButton onClick={() => setShowConfirmDialog(false)}>×</CloseButton>
+            <h2>WARNING!</h2>
+            <div style={settingsContainer}>
+              <p style={{
+                color: '#dc3545',
+                fontFamily: "'Press Start 2P', cursive",
+                fontSize: '14px',
+                textAlign: 'center',
+                marginBottom: '20px'
+              }}>
+                This will delete all your data and scores permanently!
+              </p>
+              <div style={{
+                display: 'flex',
+                gap: '20px',
+                justifyContent: 'center'
+              }}>
+                <button
+                  onClick={handleConfirmDelete}
+                  style={{
+                    ...resetScoreButton,
+                    backgroundColor: 'rgba(220, 53, 69, 0.2)',
+                    borderColor: '#dc3545'
+                  }}
+                >
+                  YES, DELETE
+                </button>
+                <button
+                  onClick={() => setShowConfirmDialog(false)}
+                  style={{
+                    ...resetScoreButton,
+                    backgroundColor: 'rgba(108, 117, 125, 0.2)',
+                    borderColor: '#6c757d'
+                  }}
+                >
+                  CANCEL
                 </button>
               </div>
             </div>
