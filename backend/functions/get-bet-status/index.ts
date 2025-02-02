@@ -123,6 +123,17 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           const resultsCollection = await getCollection('betResults');
           await resultsCollection.insertOne(betResult);
 
+          // Format prices for logging
+          const formatPrice = (price: number) => new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: bet.currency.toUpperCase()
+          }).format(price);
+
+          console.log(`📊 Stats update for ${username}: ${won ? 'Won' : 'Lost'}`);
+          console.log(`   Initial price: ${formatPrice(bet.priceAtBet)}`);
+          console.log(`   Final price:   ${formatPrice(finalPrice)}`);
+          console.log(`   Score change:  ${won ? '+1' : '-1'}`);
+
           // Update user stats with better error handling
           const userUpdateResult = await usersCollection.updateOne(
             { clientId: bet.userId },
@@ -139,7 +150,13 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           if (userUpdateResult.matchedCount === 0) {
             console.error(`❌ Failed to update stats: No user found with clientId ${bet.userId}`);
           } else {
-            console.log(`📊 Stats update for ${username}: ${won ? 'Won' : 'Lost'} (score: ${won ? '+1' : '-1'})`);
+            // Format prices for single line log
+            const formatPrice = (price: number) => new Intl.NumberFormat('en-US', {
+              style: 'currency',
+              currency: bet.currency.toUpperCase()
+            }).format(price);
+            
+            console.log(`📊 Stats update for ${username}: ${won ? 'Won' : 'Lost'} (score: ${won ? '+1' : '-1'}) | ${formatPrice(bet.priceAtBet)} → ${formatPrice(finalPrice)}`);
           }
 
           return {
