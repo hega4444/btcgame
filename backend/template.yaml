@@ -1,0 +1,157 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Resources:
+  UpdatePricesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/update-prices/index.handler
+      Runtime: nodejs18.x
+      Timeout: 10
+      MemorySize: 128
+      Events:
+        ScheduleEvent:
+          Type: Schedule
+          Properties:
+            Schedule: rate(15 seconds)
+            Name: BitcoinPriceUpdate
+            Description: Updates Bitcoin prices every 15 seconds
+            Enabled: true
+
+  GetPricesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/prices/index.handler
+      Runtime: nodejs18.x
+      Timeout: 10
+      MemorySize: 128
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /api/bitcoin/prices/{currency}
+            Method: get
+
+  PlaceBetFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/place-bet/index.handler
+      Runtime: nodejs18.x
+      Timeout: 10
+      MemorySize: 128
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /api/place-bet
+            Method: post
+
+  GetBetStatusFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/get-bet-status/index.handler
+      Runtime: nodejs18.x
+      Timeout: 10
+      MemorySize: 128
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /api/bet/{betId}
+            Method: get
+
+  GetLeaderboardFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/get-leaderboard/index.handler
+      Runtime: nodejs18.x
+      Timeout: 10
+      MemorySize: 128
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /api/leaderboard
+            Method: get
+
+  UpdateUsernameFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/update-username/index.handler
+      Runtime: nodejs18.x
+      Timeout: 10
+      MemorySize: 128
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /api/user/{userId}/username
+            Method: put
+
+  GetUserStatsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/get-user-stats/index.handler
+      Runtime: nodejs18.x
+      Timeout: 10
+      MemorySize: 128
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /api/user/{userId}/stats
+            Method: get
+
+  ForgetUserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/forget-user/index.handler
+      Runtime: nodejs18.x
+      Timeout: 10
+      MemorySize: 128
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /api/user/{userId}
+            Method: delete
+
+  RegisterUserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/register-user/index.handler
+      Runtime: nodejs18.x
+      Timeout: 10
+      MemorySize: 128
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /api/register-user
+            Method: post
+
+  # Common configuration for all functions
+  Globals:
+    Function:
+      Environment:
+        Variables:
+          MONGODB_URI: !Ref MongoDbUri
+          MONGODB_DB_NAME: !Ref MongoDbName
+      Policies:
+        - AWSLambdaBasicExecutionRole
+
+Parameters:
+  MongoDbUri:
+    Type: String
+    Description: MongoDB connection URI
+    NoEcho: true  # Hides the value in outputs
+
+  MongoDbName:
+    Type: String
+    Description: MongoDB database name
+    Default: btc-game
+
+Outputs:
+  ApiUrl:
+    Description: URL of the API endpoint
+    Value: !Sub https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/ 
