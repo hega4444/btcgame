@@ -22,7 +22,9 @@ import {
   TopButton,
   LeaderboardDialog,
   LeaderboardItem,
-  BitcoinPrice
+  BitcoinPrice,
+  moveCoin,
+  CoinAnimationContainer
 } from './styles';
 import { Line } from 'react-chartjs-2';
 import {
@@ -73,15 +75,17 @@ interface PlaceBetResponse {
   timestamp: string;
 }
 
+interface BetResult {
+  won: boolean;
+  profit: number;
+  initialPrice: number;
+  finalPrice: number;
+  timestamp: string;
+}
+
 interface BetStatusResponse {
   status: 'active' | 'completed';
-  result?: {
-    won: boolean;
-    profit: number;
-    initialPrice: number;
-    finalPrice: number;
-    timestamp: string;
-  };
+  result?: BetResult;
   bet?: {
     betType: 'up' | 'down';
     priceAtBet: number;
@@ -95,6 +99,36 @@ interface RegisterUserResponse {
   clientId: string;
   message: string;
 }
+
+// Debug logging for environment variables
+console.log('Environment Variables:', {
+  VITE_USE_MOCK_DATA: import.meta.env.VITE_USE_MOCK_DATA,
+  VITE_API_URL: import.meta.env.VITE_API_URL,
+  DEV: import.meta.env.DEV,
+  MODE: import.meta.env.MODE
+});
+
+// Add this helper at the top of the file with more explicit checks
+const USE_MOCK_DATA = (() => {
+  const mockDataEnv = import.meta.env.VITE_USE_MOCK_DATA;
+  console.log('VITE_USE_MOCK_DATA value:', mockDataEnv);
+  return mockDataEnv === 'true';
+})();
+
+const API_URL = (() => {
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+  console.log('API_URL value:', apiUrl);
+  return apiUrl;
+})();
+
+// Update the BET_TIMER constant near the top with other constants
+const BET_TIMER = (() => {
+  const timerFromEnv = import.meta.env.VITE_BET_TIMER_SECONDS;
+  const defaultTimer = 60; // 60 seconds default
+  const timer = timerFromEnv ? parseInt(timerFromEnv) : defaultTimer;
+  console.log('BET_TIMER value:', timer, 'seconds');
+  return timer * 1000; // Convert to milliseconds
+})();
 
 const App: React.FC = () => {
   const [showDialog, setShowDialog] = useState(false);
@@ -146,6 +180,32 @@ const App: React.FC = () => {
   // Add userId state
   const [userId, setUserId] = useState<string | null>(null);
 
+  // Add new state for bet result
+  const [betResult, setBetResult] = useState<BetResult | null>(null);
+
+  // Add this state to track if we're currently checking status
+  const [isCheckingStatus, setIsCheckingStatus] = useState(false);
+
+  // Add this ref to store the interval
+  const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Add this ref to track the status check timeout
+  const statusCheckTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Add this helper function to format the timer
+  const formatTimer = (seconds: number | null) => {
+    if (seconds === null) return '0:00';
+    return `0:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  // Add this helper function for timer color
+  const getTimerColor = (seconds: number) => {
+    if (seconds <= 3) return '#ff0000';
+    if (seconds <= 5) return '#ff4500';
+    if (seconds <= 10) return '#ffa500';
+    return '#fff5d4';
+  };
+
   // Add this effect to handle window resizing
   useEffect(() => {
     const handleResize = () => {
@@ -175,26 +235,37 @@ const App: React.FC = () => {
     }
   }, []);
 
-  useEffect(() => {
-    const fetchPrices = async () => {
-      try {
-        const response = await fetch('YOUR_API_ENDPOINT_HERE');
-        if (!response.ok) {
-          throw new Error('API response was not ok');
-        }
-        const data = await response.json();
-        setPrices(data.slice(-12));
-      } catch (error) {
-        console.warn('Using mock data due to API error:', error);
-        setPrices(mockPrices);
+  // Update the price fetching function
+  const fetchPrices = useCallback(async () => {
+    try {
+      if (USE_MOCK_DATA) {
+        // Use mock data
+        const mockPrice = mockPrices[Math.floor(Math.random() * mockPrices.length)];
+        setPrices(prev => [...prev.slice(-19), mockPrice]);
+        return;
       }
-    };
 
+      // Use real API
+      const response = await fetch(`${API_URL}/api/bitcoin/prices/${currency.toLowerCase()}`);
+      if (!response.ok) throw new Error('Failed to fetch prices');
+      
+      const data = await response.json();
+      setPrices(data.prices || []); // Add fallback empty array
+
+    } catch (error) {
+      console.error('Error fetching prices:', error);
+      // Fallback to mock data on error
+      const mockPrice = mockPrices[Math.floor(Math.random() * mockPrices.length)];
+      setPrices(prev => [...prev.slice(-19), mockPrice]);
+    }
+  }, [currency]);
+
+  useEffect(() => {
     fetchPrices();
     const interval = setInterval(fetchPrices, 15000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchPrices]);
 
   useEffect(() => {
     if (prices === mockPrices) {
@@ -533,71 +604,296 @@ const App: React.FC = () => {
   }, []);
 
   // Update the timer interval callback in handlePlaceBet
-  const handlePlaceBet = (direction: 'up' | 'down') => {
-    setIsBetting(true);
-    setTimer(2);
-    setCurrentBet(direction);
-    setBetPrice(prices[prices.length - 1]?.price || null);
-    
-    const interval = setInterval(() => {
-      setTimer((prevTimer) => {
-        if (prevTimer === null || prevTimer <= 1) {
-          clearInterval(interval);
-          
-          const isWinning = lastWasWin;
-          
-          if (isWinning) {
-            // Play win sound when winning
-            if (winSoundRef.current && isMusicPlaying) {
-              winSoundRef.current.currentTime = 0;
-              winSoundRef.current.play().catch(err => console.log('Win sound play failed:', err));
+  const handlePlaceBet = async (type: 'up' | 'down') => {
+    try {
+      // Clear any existing timers
+      if (countdownIntervalRef.current) {
+        clearInterval(countdownIntervalRef.current);
+      }
+      if (statusCheckTimeoutRef.current) {
+        clearTimeout(statusCheckTimeoutRef.current);
+      }
+
+      const currentPrice = prices[prices.length - 1]?.price || 0;
+      setBetPrice(currentPrice);  // Set the bet price
+      setIsBetting(true);
+      setCurrentBet(type);
+      setTimer(BET_TIMER / 1000);
+      setIsCheckingStatus(false);
+
+      if (USE_MOCK_DATA) {
+        // Mock data handling
+        countdownIntervalRef.current = setInterval(() => {
+          setTimer(prev => {
+            if (prev === null || prev <= 1) {
+              clearInterval(countdownIntervalRef.current!);
+              const mockResult: BetResult = {
+                won: Math.random() > 0.5,
+                profit: 1,
+                initialPrice: prices[prices.length - 2]?.price || 0,
+                finalPrice: prices[prices.length - 1]?.price || 0,
+                timestamp: new Date().toISOString()
+              };
+              handleBetComplete(mockResult);
+              return 0;
             }
-            
-            const newScore = score + 1;
-            setScore(newScore);
-            updateScoreWithAnimation(newScore);
-            createCoinAnimation();
-          } else {
-            // Play lose sound when losing
-            if (loseSoundRef.current && isMusicPlaying) {
-              loseSoundRef.current.currentTime = 0;
-              loseSoundRef.current.play().catch(err => console.log('Lose sound play failed:', err));
-            }
-            // Add score reduction when losing
-            const newScore = Math.max(0, score - 1);
-            setScore(newScore);
-            updateScoreWithAnimation(newScore);
-          }
-          
-          setShowWinMessage(true);
-          setLastWasWin(!lastWasWin);
-          
-          setTimeout(() => {
-            setShowWinMessage(false);
-            setIsBetting(false);
-            setCurrentBet(null);
-            setBetPrice(null);
-          }, 1500);
-          
-          return null;
-        }
-        return prevTimer - 1;
+            return prev - 1;
+          });
+        }, 1000);
+        return;
+      }
+
+      const response = await fetch(`${API_URL}/api/place-bet`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: getClientId(),
+          username,
+          currency,
+          betType: type,
+          priceAtBet: prices[prices.length - 1]?.price || 0,
+        }),
       });
+
+      if (!response.ok) throw new Error('Failed to place bet');
+      
+      const data = await response.json();
+      const betId = data.betId;
+
+      // Store the new interval
+      countdownIntervalRef.current = setInterval(() => {
+        setTimer((prevTimer) => {
+          if (prevTimer === null || prevTimer <= 1) {
+            if (countdownIntervalRef.current) {
+              clearInterval(countdownIntervalRef.current);
+              countdownIntervalRef.current = null;
+            }
+            checkBetStatus(betId);
+            return 0;
+          }
+          return prevTimer - 1;
+        });
+      }, 1000);
+
+    } catch (error) {
+      console.error('Error placing bet:', error);
+      setIsBetting(false);
+      setCurrentBet(null);
+      if (countdownIntervalRef.current) {
+        clearInterval(countdownIntervalRef.current);
+        countdownIntervalRef.current = null;
+      }
+    }
+  };
+
+  // Clean up interval on unmount
+  useEffect(() => {
+    return () => {
+      if (countdownIntervalRef.current) {
+        clearInterval(countdownIntervalRef.current);
+      }
+      if (statusCheckTimeoutRef.current) {
+        clearTimeout(statusCheckTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Add this helper function near the top with other functions
+  const formatCurrency = (amount: number, currencyCode: string) => {
+    const formatter = new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currencyCode,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+    return formatter.format(amount);
+  };
+
+  // Add this effect to handle score digit updates
+  useEffect(() => {
+    // Convert score to digits array
+    const digits = Math.abs(score).toString().split('').map((digit, index) => ({
+      value: digit,
+      key: Date.now() + index,
+      isAnimating: true
+    }));
+
+    // Add minus sign if negative
+    if (score < 0) {
+      digits.unshift({
+        value: '-',
+        key: Date.now() - 1,
+        isAnimating: true
+      });
+    }
+
+    // If score is 0, show single 0
+    if (score === 0) {
+      setScoreDigits([{
+        value: '0',
+        key: Date.now(),
+        isAnimating: false
+      }]);
+      return;
+    }
+
+    setScoreDigits(digits);
+
+    // Reset animation flag after animation completes
+    const timer = setTimeout(() => {
+      setScoreDigits(prev => prev.map(digit => ({
+        ...digit,
+        isAnimating: false
+      })));
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [score]); // This effect runs whenever score changes
+
+  // Add this handler function
+  const handleResetScore = () => {
+    setScore(0);
+    setScoreDigits([{ value: '0', key: Date.now(), isAnimating: false }]);
+  };
+
+  // Function to handle bet completion
+  const handleBetComplete = (result: BetResult) => {
+    console.log('Handling bet completion:', result);
+
+    // Set result first
+    setBetResult(result);
+    setShowWinMessage(true);
+    setLastWasWin(!result.won);
+
+    if (result.won) {
+      // Calculate new score
+      const newScore = score + result.profit;
+      setScore(newScore);
+      
+      // Play win sound
+      if (winSoundRef.current) {
+        winSoundRef.current.currentTime = 0;
+        winSoundRef.current.play().catch(console.error);
+      }
+      
+      // Add coin animation
+      if (gameStatsRef.current) {
+        const rect = gameStatsRef.current.getBoundingClientRect();
+        addWinningCoins(rect);
+      }
+
+      // Animate score after a delay
+      setTimeout(() => {
+        updateScoreWithAnimation(newScore);
+      }, 500);
+    } else {
+      // Handle loss
+      const newScore = Math.max(0, score - Math.abs(result.profit));
+      setScore(newScore);
+      updateScoreWithAnimation(newScore);
+      
+      // Play lose sound
+      if (loseSoundRef.current) {
+        loseSoundRef.current.currentTime = 0;
+        loseSoundRef.current.play().catch(console.error);
+      }
+    }
+
+    // Reset betting states after a delay
+    setTimeout(() => {
+      console.log('Resetting bet states');
+      setShowWinMessage(false);
+      setBetResult(null);
+      setIsBetting(false);
+      setCurrentBet(null);
+      setTimer(null);  // Reset timer to null when bet completes
+    }, 3000);
+  };
+
+  const addWinningCoins = (targetRect: DOMRect) => {
+    // Position coin at 80% of viewport height (a bit higher)
+    const startY = window.innerHeight * 0.80;  // Changed from 0.85 to 0.80
+    const startX = window.innerWidth / 2;
+
+    const newCoin: CoinAnimation = {
+      id: Date.now() + Math.random(),
+      startX,
+      startY,
+      endX: targetRect.left + targetRect.width / 2,
+      endY: targetRect.top + targetRect.height / 2
+    };
+
+    console.log('Coin position:', { startY, startX });
+
+    setWinningCoins(prev => [...prev, newCoin]);
+
+    setTimeout(() => {
+      setWinningCoins(prev => prev.filter(coin => coin.id !== newCoin.id));
     }, 1000);
   };
 
-  // Add this helper function to format the timer
-  const formatTimer = (seconds: number | null) => {
-    if (seconds === null) return '0:00';
-    return `0:${seconds.toString().padStart(2, '0')}`;
-  };
+  // Update the checkBetStatus function
+  const checkBetStatus = async (betId: string) => {
+    if (isCheckingStatus) return;
 
-  // Update the getTimerColor function
-  const getTimerColor = (seconds: number) => {
-    if (seconds <= 3) return '#ff0000';
-    if (seconds <= 5) return '#ff4500';
-    if (seconds <= 10) return '#ffa500';
-    return '#fff5d4'; // Changed from '#ffffff' to a soft yellow-white
+    try {
+      setIsCheckingStatus(true);
+      console.log('Checking bet status for:', betId);
+      
+      const response = await fetch(`${API_URL}/api/bet/${betId}`);
+      if (!response.ok) throw new Error('Failed to check bet status');
+      
+      const data: BetStatusResponse = await response.json();
+      console.log('Got bet status:', data);
+      
+      if (data.status === 'completed') {
+        setIsCheckingStatus(false);
+        if (data.result) {
+          // If we have a result, handle it
+          handleBetComplete(data.result);
+        } else {
+          // If completed but no result, reset all betting states
+          console.log('Bet completed with no result, resetting states');
+          setIsBetting(false);
+          setCurrentBet(null);
+          setShowWinMessage(false);
+          setBetResult(null);
+          if (countdownIntervalRef.current) {
+            clearInterval(countdownIntervalRef.current);
+            countdownIntervalRef.current = null;
+          }
+          if (statusCheckTimeoutRef.current) {
+            clearTimeout(statusCheckTimeoutRef.current);
+            statusCheckTimeoutRef.current = null;
+          }
+          return; // Stop checking this bet
+        }
+      } else {
+        // If not completed, schedule next check
+        setIsCheckingStatus(false);
+        statusCheckTimeoutRef.current = setTimeout(() => {
+          checkBetStatus(betId);
+        }, 500);
+      }
+    } catch (error) {
+      console.error('Error checking bet status:', error);
+      // Reset all states on error
+      setIsCheckingStatus(false);
+      setIsBetting(false);
+      setCurrentBet(null);
+      setShowWinMessage(false);
+      setBetResult(null);
+      if (countdownIntervalRef.current) {
+        clearInterval(countdownIntervalRef.current);
+        countdownIntervalRef.current = null;
+      }
+      if (statusCheckTimeoutRef.current) {
+        clearTimeout(statusCheckTimeoutRef.current);
+        statusCheckTimeoutRef.current = null;
+      }
+    }
   };
 
   // Add this new handler function near the other handlers
@@ -752,87 +1048,6 @@ const App: React.FC = () => {
     }
   }, [isMusicPlaying]);
 
-  // Add this handler function
-  const handleResetScore = () => {
-    setScore(0);
-    setScoreDigits([{ value: '0', key: Date.now(), isAnimating: false }]);
-  };
-
-  // Update placeBet function
-  const placeBet = async (type: 'up' | 'down') => {
-    try {
-      const response = await fetch('/api/place-bet', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId,
-          currency,
-          betType: type,
-        }),
-      });
-
-      const data: PlaceBetResponse = await response.json();
-      setActiveBetId(data.betId);
-      // Start polling bet status
-      pollBetStatus(data.betId);
-    } catch (error) {
-      console.error('Error placing bet:', error);
-    }
-  };
-
-  // Add function to poll bet status
-  const pollBetStatus = async (betId: string) => {
-    const pollInterval = setInterval(async () => {
-      try {
-        const response = await fetch(`/api/bet/${betId}`);
-        const data: BetStatusResponse = await response.json();
-
-        if (data.status === 'completed') {
-          clearInterval(pollInterval);
-          setActiveBetId(null);
-          // Handle bet completion (update score, show result, etc.)
-          if (data.result) {
-            handleBetResult(data.result);
-          }
-        }
-      } catch (error) {
-        console.error('Error checking bet status:', error);
-        clearInterval(pollInterval);
-      }
-    }, 1000); // Check every second
-
-    // Clean up interval on component unmount
-    return () => clearInterval(pollInterval);
-  };
-
-  // Add function to handle bet result
-  const handleBetResult = (result: BetStatusResponse['result']) => {
-    if (result) {
-      if (result.won) {
-        // Handle win
-        setScore(prev => prev + result.profit);
-        // Show win animation
-      } else {
-        // Handle loss
-        setScore(prev => prev - Math.abs(result.profit));
-        // Show loss animation
-      }
-    }
-  };
-
-  // Instead, add this effect to just check for existing user
-  useEffect(() => {
-    const clientId = getClientId(); // This will get or create the clientId
-    const storedUsername = localStorage.getItem('btcGameUsername');
-    
-    if (storedUsername) {
-      setUsername(storedUsername);
-      setHasAccepted(true);
-    }
-  }, []);
-
   return (
     <Container>
       <GameContainer>
@@ -862,9 +1077,9 @@ const App: React.FC = () => {
               transition: 'opacity 0.5s ease',
             }}>
               <span>BTC:</span>
-              $45,123
+              {prices.length > 0 ? formatCurrency(prices[prices.length - 1].price, currency) : '-'}
             </BitcoinPrice>
-            <Line data={chartData} options={chartOptions} />
+            <Line data={chartData as any} options={chartOptions as any} />
           </div>
 
           {gameStarted && (
@@ -946,19 +1161,53 @@ const App: React.FC = () => {
                 )}
               </div>
 
+              {/* Win/Lose Message Container - Same position as bet box */}
+              {(showWinMessage || timer === 0) && (
+                <div style={{
+                  position: 'fixed',
+                  bottom: '40px',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  width: 'auto',
+                  height: '120px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  pointerEvents: 'none',
+                  zIndex: 1001,
+                  padding: '15px',
+                  border: '4px solid white',
+                  borderImage: 'linear-gradient(to right, transparent 0%, rgba(255, 255, 255, 0.4) 20%, rgba(255, 255, 255, 0.4) 80%, transparent 100%) 1',
+                  background: 'rgba(0, 0, 0, 0.2)',
+                  minWidth: '300px'
+                }}>
+                  <div style={{
+                    color: lastWasWin ? '#f44336' : '#4CAF50',
+                    fontFamily: "'Press Start 2P', cursive",
+                    fontSize: '24px',
+                    textAlign: 'center',
+                    textShadow: '2px 2px 0px rgba(0,0,0,0.5)',
+                    animation: 'winMessagePopup 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                    padding: '15px',
+                    background: 'rgba(0, 0, 0, 0.8)',
+                    borderRadius: '8px',
+                    border: `2px solid ${lastWasWin ? '#f44336' : '#4CAF50'}`,
+                    whiteSpace: 'nowrap'
+                  }}>
+                    {lastWasWin ? 'KEEP TRYING!' : 'YOU WIN!'}
+                  </div>
+                </div>
+              )}
+
               {/* Betting UI Container */}
               <div 
                 ref={betBoxRef}
-                onMouseEnter={() => setIsBetBoxHovered(true)}
-                onMouseLeave={() => setIsBetBoxHovered(false)}
+                className="bet-box"
                 style={{
                   position: 'fixed',
                   bottom: '40px',
                   left: '50%',
                   transform: 'translateX(-50%)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
                   width: 'auto',
                   padding: '15px',
                   border: '4px solid white',
@@ -971,139 +1220,116 @@ const App: React.FC = () => {
                   boxShadow: isBetBoxHovered 
                     ? '0 0 30px rgba(255, 255, 255, 0.5), 0 0 60px rgba(255, 255, 255, 0.3), inset 0 0 20px rgba(255, 255, 255, 0.25)'
                     : '0 0 10px rgba(255, 255, 255, 0.1), inset 0 0 5px rgba(255, 255, 255, 0.05)',
+                  minHeight: '120px',
+                  minWidth: '300px',
+                  display: (showWinMessage || timer === 0) ? 'none' : 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                <div style={{
+                  color: '#fff5d4',
+                  fontFamily: "'Press Start 2P', cursive",
+                  fontSize: '16px',
+                  marginBottom: '15px',
+                  textAlign: 'center',
+                  textShadow: '2px 2px 0px rgba(0,0,0,0.5)'
                 }}>
-                {!isBetting ? (
-                  <>
-                    <div style={{
-                      color: '#fff5d4',
-                      fontFamily: "'Press Start 2P', cursive",
-                      fontSize: '16px',
-                      marginBottom: '15px',
-                      textShadow: '2px 2px 0px rgba(0,0,0,0.5)',
-                    }}>
-                      Place bet:
-                    </div>
-                    <div style={{
-                      display: 'flex',
-                      gap: '20px',
-                    }}>
-                      <button
-                        onClick={() => handlePlaceBet('up')}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.transform = 'scale(1.05)';
-                          e.currentTarget.style.boxShadow = '0 6px 8px rgba(0,0,0,0.2)';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.transform = 'scale(1)';
-                          e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
-                        }}
-                        style={{
-                          padding: '10px 30px',
-                          fontSize: '14px',
-                          fontFamily: "'Press Start 2P', cursive",
-                          backgroundColor: '#4CAF50',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '5px',
-                          cursor: 'pointer',
-                          boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-                          transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-                        }}
-                      >
-                        UP
-                      </button>
-                      <button
-                        onClick={() => handlePlaceBet('down')}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.transform = 'scale(1.05)';
-                          e.currentTarget.style.boxShadow = '0 6px 8px rgba(0,0,0,0.2)';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.transform = 'scale(1)';
-                          e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
-                        }}
-                        style={{
-                          padding: '10px 30px',
-                          fontSize: '14px',
-                          fontFamily: "'Press Start 2P', cursive",
-                          backgroundColor: '#f44336',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '5px',
-                          cursor: 'pointer',
-                          boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-                          transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-                        }}
-                      >
-                        DOWN
-                      </button>
-                    </div>
-                  </>
-                ) : (
+                  {isBetting ? (
+                    <>
+                      <div style={{
+                        color: '#fff5d4',
+                        fontFamily: "'Press Start 2P', cursive",
+                        fontSize: '12px',
+                        textAlign: 'center',
+                        marginBottom: '10px'
+                      }}>
+                        Your bet: {currentBet === 'up' ? '🟢 UP' : '🔴 DOWN'}<br/>
+                        Price: ${betPrice?.toFixed(2)}
+                      </div>
+                      <div style={{
+                        color: getTimerColor(timer || 0),
+                        fontFamily: "'Press Start 2P', cursive",
+                        fontSize: '24px',
+                        textShadow: '2px 2px 0px rgba(0,0,0,0.5)',
+                        transition: 'color 0.3s ease'
+                      }}>
+                        {formatTimer(timer)}
+                      </div>
+                    </>
+                  ) : (
+                    'Place your bet:'
+                  )}
+                </div>
+                {!isBetting && (
                   <div style={{
                     display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: '10px'
+                    gap: '20px',
                   }}>
-                    {showWinMessage ? (
-                      <div style={{
-                        color: lastWasWin ? '#f44336' : '#4CAF50',
+                    <button
+                      onClick={() => handlePlaceBet('up')}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'scale(1.05)';
+                        e.currentTarget.style.boxShadow = '0 6px 8px rgba(0,0,0,0.2)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'scale(1)';
+                        e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
+                      }}
+                      style={{
+                        padding: '10px 30px',
+                        fontSize: '14px',
                         fontFamily: "'Press Start 2P', cursive",
-                        fontSize: '32px',
-                        textAlign: 'center',
-                        textShadow: '3px 3px 0px rgba(0,0,0,0.5)',
-                        animation: 'winMessagePopup 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-                        padding: '20px',
-                        background: 'rgba(0, 0, 0, 0.3)',
-                        borderRadius: '10px',
-                        border: `2px solid ${lastWasWin ? '#f44336' : '#4CAF50'}`
-                      }}>
-                        {lastWasWin ? 'KEEP TRYING!' : 'YOU WIN!'}
-                      </div>
-                    ) : (
-                      <>
-                        <div style={{
-                          color: 'rgba(255, 255, 255, 0.9)',
-                          fontFamily: "'Press Start 2P', cursive",
-                          fontSize: '12px',
-                          textAlign: 'center'
-                        }}>
-                          Your bet: {currentBet === 'up' ? '🟢 UP' : '🔴 DOWN'}<br/>
-                          Price: ${betPrice?.toFixed(2)}
-                        </div>
-                        <div style={{
-                          color: getTimerColor(timer || 0),
-                          fontFamily: "'Press Start 2P', cursive",
-                          fontSize: '24px',
-                          padding: '10px 30px',
-                          textShadow: '2px 2px 0px rgba(0,0,0,0.5)',
-                          transition: 'color 0.3s ease'
-                        }}>
-                          {formatTimer(timer)}
-                        </div>
-                      </>
-                    )}
+                        backgroundColor: '#4CAF50',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '5px',
+                        cursor: 'pointer',
+                        boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                        transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+                      }}
+                    >
+                      UP
+                    </button>
+                    <button
+                      onClick={() => handlePlaceBet('down')}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'scale(1.05)';
+                        e.currentTarget.style.boxShadow = '0 6px 8px rgba(0,0,0,0.2)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'scale(1)';
+                        e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
+                      }}
+                      style={{
+                        padding: '10px 30px',
+                        fontSize: '14px',
+                        fontFamily: "'Press Start 2P', cursive",
+                        backgroundColor: '#f44336',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '5px',
+                        cursor: 'pointer',
+                        boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                        transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+                      }}
+                    >
+                      DOWN
+                    </button>
                   </div>
                 )}
               </div>
 
               {/* Add the coin animations */}
               {winningCoins.map(coin => (
-                <div
+                <CoinAnimationContainer
                   key={coin.id}
-                  style={{
-                    position: 'fixed',
-                    left: `${coin.startX}px`,
-                    top: `${coin.startY}px`,
-                    transform: 'translate(-50%, -50%)',
-                    zIndex: 1000,
-                    animation: `moveCoin${coin.id} 2s cubic-bezier(0.175, 0.885, 0.32, 1.275)`,
-                    pointerEvents: 'none',
-                  }}
+                  $startX={coin.startX}
+                  $startY={coin.startY}
                 >
-                  <CoinSprite style={{ width: '80px', height: '80px' }} />
-                </div>
+                  <CoinSprite />
+                </CoinAnimationContainer>
               ))}
             </>
           )}

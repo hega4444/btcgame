@@ -66,6 +66,17 @@ export const spinCoin = keyframes`
   100% { background-image: url('/assets/coin1.png'); }
 `;
 
+export const moveCoin = keyframes`
+  0% {
+    transform: translate(-50%, -50%) scale(1) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(0.3) rotate(360deg);
+    opacity: 0;
+  }
+`;
+
 export const float = keyframes`
   0%, 100% {
     transform: translateY(0);
@@ -509,4 +520,19 @@ export const LeaderboardItem = styled.div`
   span:last-child {
     text-align: right;
   }
-`; 
+`;
+
+interface CoinAnimationProps {
+  $startX: number;
+  $startY: number;
+}
+
+export const CoinAnimationContainer = styled.div<CoinAnimationProps>`
+  position: fixed;
+  left: ${props => props.$startX}px;
+  top: ${props => props.$startY}px;
+  transform: translate(-50%, -50%);
+  z-index: 1000;
+  animation: ${moveCoin} 1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  pointer-events: none;
+`;

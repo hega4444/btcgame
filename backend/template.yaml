@@ -74,20 +74,6 @@ Resources:
             Path: /api/leaderboard
             Method: get
 
-  UpdateUsernameFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      Handler: functions/update-username/index.handler
-      Runtime: nodejs18.x
-      Timeout: 10
-      MemorySize: 128
-      Events:
-        ApiEvent:
-          Type: Api
-          Properties:
-            Path: /api/user/{userId}/username
-            Method: put
-
   GetUserStatsFunction:
     Type: AWS::Serverless::Function
     Properties:

@@ -20,7 +20,6 @@ export interface Bet {
   currency: string;
   betType: 'up' | 'down';
   priceAtBet: number;
-  betAmount: number;
   timestamp: Date;
   status: 'active' | 'completed';
 }
@@ -43,4 +42,10 @@ export interface UserScore {
   wins: number;
   losses: number;
   lastUpdated: Date;
+}
+
+export interface BetStatusResponse {
+  status: 'active' | 'completed';
+  result?: BetResult;
+  bet?: Bet;
 } 

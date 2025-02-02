@@ -14,40 +14,51 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       };
     }
 
-    const betsCollection = await getCollection('bets');
-    
-    // Create new ObjectId for the bet
-    const betId = new ObjectId();
-    
-    const bet: Bet = {
-      _id: betId,
-      userId,
-      currency: currency.toLowerCase(),
-      betType,
-      priceAtBet: 0, // Will be set from prices collection
-      timestamp: new Date(),
-      status: 'active'
-    };
-
     // Get current price
     const pricesCollection = await getCollection('prices');
-    const currentPrice = await pricesCollection
-      .find({ currency: bet.currency })
-      .sort({ timestamp: -1 })
-      .limit(1)
-      .toArray();
+    const latestPrice = await pricesCollection.findOne(
+      { currency: currency.toLowerCase() },
+      { sort: { timestamp: -1 } }
+    );
 
-    if (!currentPrice.length) {
+    if (!latestPrice) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: 'Could not get current price' })
+        body: JSON.stringify({ error: 'No price data available' })
       };
     }
 
-    bet.priceAtBet = currentPrice[0].price;
+    // Get username for logging
+    const usersCollection = await getCollection('users');
+    const user = await usersCollection.findOne({ clientId: userId });
+    const username = user?.username || 'Unknown User';
 
+    // Create a new ObjectId first
+    const betId = new ObjectId();
+
+    // Create bet with the guaranteed _id and current timestamp
+    const bet: Bet = {
+      _id: betId,
+      userId,
+      currency,
+      betType,
+      priceAtBet: latestPrice.price,
+      timestamp: new Date(), // Ensure this is a current timestamp
+      status: 'active'
+    };
+
+    const betsCollection = await getCollection('bets');
     await betsCollection.insertOne(bet);
-    
+
+    // Log the bet placement with formatted price
+    const formattedPrice = new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency.toUpperCase()
+    }).format(latestPrice.price);
+
+    console.log(`🎲 New Bet: ${username} bet ${betType.toUpperCase()} on BTC/${currency.toUpperCase()} at ${formattedPrice}`);
+    console.log(`   Timestamp: ${bet.timestamp.toISOString()}`); // Add timestamp to log
+
     return {
       statusCode: 200,
       headers: {
@@ -55,12 +66,13 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         'Access-Control-Allow-Origin': '*'
       },
       body: JSON.stringify({
-        betId: betId.toString(), // Convert ObjectId to string for frontend
         message: 'Bet placed successfully',
+        betId: betId.toString(),
         priceAtBet: bet.priceAtBet,
         timestamp: bet.timestamp
       })
     };
+
   } catch (error) {
     console.error('Error:', error);
     return {

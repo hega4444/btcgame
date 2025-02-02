@@ -1,5 +1,6 @@
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getCollection } from '../../shared/db';
+import { MongoClient } from 'mongodb';
 
 export const handler: APIGatewayProxyHandler = async (event) => {
   try {
@@ -8,30 +9,29 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     if (!userId) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: 'Missing userId' })
+        body: JSON.stringify({ error: 'User ID is required' })
       };
     }
 
-    const db = await getCollection('users');
-    
-    // Start a session for transaction
-    const session = db.client.startSession();
+    const usersCollection = await getCollection('users');
+    const betsCollection = await getCollection('bets');
+    const resultsCollection = await getCollection('betResults');
+
+    // Get MongoDB client from the collection's parent
+    const client = (usersCollection as any).s.db.client as MongoClient;
+    const session = client.startSession();
 
     try {
-      await session.withTransaction(async () => {
-        // Delete user profile
-        await db.deleteOne({ userId });
+      // Start transaction
+      session.startTransaction();
 
-        // Delete user's bets
-        const betsCollection = await getCollection('bets');
-        await betsCollection.deleteMany({ userId });
+      // Delete user data
+      await usersCollection.deleteOne({ clientId: userId }, { session });
+      await betsCollection.deleteMany({ userId }, { session });
+      await resultsCollection.deleteMany({ userId }, { session });
 
-        // Delete bet results
-        const resultsCollection = await getCollection('betResults');
-        await resultsCollection.deleteMany({ userId });
-      });
-
-      await session.endSession();
+      // Commit transaction
+      await session.commitTransaction();
 
       return {
         statusCode: 200,
@@ -40,13 +40,17 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           'Access-Control-Allow-Origin': '*'
         },
         body: JSON.stringify({
-          message: 'User data deleted successfully',
-          userId
+          message: 'User data deleted successfully'
         })
       };
+
     } catch (error) {
+      // Abort transaction on error
       await session.abortTransaction();
       throw error;
+    } finally {
+      // End session
+      await session.endSession();
     }
 
   } catch (error) {
