@@ -132,19 +132,26 @@ export const GameContainer: React.FC<GameContainerProps> = ({
   };
 
   const handleConfirmDelete = async () => {
+    // First remove local storage items
+    localStorage.removeItem('btcGameAccepted');
+    localStorage.removeItem('btcGameUsername');
+    localStorage.removeItem('btcGameClientId');
+    
+    // Reset UI state
+    setScore(0);
+    setShowSettings(false);
+    setShowConfirmDialog(false);
+
+    // Attempt API call but don't block on it
     try {
       await api.forgetUser(clientId);
-      localStorage.removeItem('btcGameAccepted');
-      localStorage.removeItem('btcGameUsername');
-      localStorage.removeItem('btcGameClientId');
-      setScore(0);
-      setShowSettings(false);
-      setShowConfirmDialog(false);
-      window.location.reload();
     } catch (error) {
-      console.error('Failed to delete user data:', error);
-      alert('Failed to delete user data. Please try again.');
+      console.error('Failed to delete user data from API:', error);
+      // No user-facing error message
     }
+
+    // Reload page after everything
+    window.location.reload();
   };
 
   const bubbles = React.useMemo(() => {
