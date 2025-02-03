@@ -20,6 +20,7 @@ import {
 } from './styles/App.styles';
 import { BettingInterface } from './BettingInterface';
 import { api } from '../services/api';
+import { WinningCoin } from './CoinSprite';
 
 type ScoreDigit = {
   value: string;
@@ -63,6 +64,7 @@ export const GameContainer: React.FC<GameContainerProps> = ({
   setCurrency,
   onLeaderboardClick,
   setUsername,
+  isMusicPlaying,
 }) => {
   const [isBetting, setIsBetting] = React.useState(false);
   const [currentBet, setCurrentBet] = React.useState<'up' | 'down' | null>(null);
@@ -73,10 +75,13 @@ export const GameContainer: React.FC<GameContainerProps> = ({
     id: number;
     startX: number;
     startY: number;
+    endX: number;
+    endY: number;
   }>>([]);
   const gameStatsRef = React.useRef<HTMLDivElement>(null);
   const [score, setScore] = React.useState(0);
   const [showConfirmDialog, setShowConfirmDialog] = React.useState(false);
+  const timeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
   const updateScoreWithAnimation = React.useCallback((newScore: number) => {
     console.log('🎯 Updating score with animation:', newScore);
@@ -164,19 +169,35 @@ export const GameContainer: React.FC<GameContainerProps> = ({
     }));
   }, []);
 
-  const showWinningCoin = () => {
+  const showWinningCoin = React.useCallback(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    
     const newCoin = {
       id: Date.now(),
       startX: window.innerWidth / 2,
       startY: window.innerHeight * 0.8,
+      endX: window.innerWidth / 2,
+      endY: window.innerHeight * 0.2, // Make it go higher
     };
     
-    setWinningCoins(prev => [...prev, newCoin]);
+    setWinningCoins([newCoin]);
     
-    setTimeout(() => {
-      setWinningCoins(prev => prev.filter(coin => coin.id !== newCoin.id));
-    }, 1000);
-  };
+    timeoutRef.current = setTimeout(() => {
+      setWinningCoins([]);
+      timeoutRef.current = null;
+    }, 2000);
+  }, []);
+
+  // Add cleanup
+  React.useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleUsernameChange = (newUsername: string) => {
     setUsername(newUsername);
@@ -190,6 +211,7 @@ export const GameContainer: React.FC<GameContainerProps> = ({
           gameStarted={gameStarted}
           currency={currency}
           isMobile={isMobile}
+          betPrice={betPrice}
         />
 
         {gameStarted && (
@@ -240,6 +262,7 @@ export const GameContainer: React.FC<GameContainerProps> = ({
               loseSoundRef={loseSoundRef}
               gameStarted={gameStarted}
               onWin={showWinningCoin}
+              isMusicPlaying={isMusicPlaying}
             />
 
             <WinLoseMessage 
@@ -251,13 +274,13 @@ export const GameContainer: React.FC<GameContainerProps> = ({
             />
 
             {winningCoins.map(coin => (
-              <CoinAnimationContainer
+              <WinningCoin
                 key={coin.id}
-                $startX={coin.startX}
-                $startY={coin.startY}
-              >
-                <CoinSprite />
-              </CoinAnimationContainer>
+                startX={coin.startX}
+                startY={coin.startY}
+                endX={coin.endX}
+                endY={coin.endY}
+              />
             ))}
           </>
         )}

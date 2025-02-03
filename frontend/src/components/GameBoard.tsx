@@ -2,12 +2,14 @@ import * as React from 'react';
 import { Line } from 'react-chartjs-2';
 import { BitcoinPrice } from '../styles';
 import { chartData, chartOptions } from '../config/chartConfig';
+import { Chart as ChartJS } from 'chart.js';
 
 interface GameBoardProps {
   prices: Array<{timestamp: string; price: number}>;
   gameStarted: boolean;
   currency: string;
   isMobile: boolean;
+  betPrice?: number | null;
 }
 
 const formatCurrency = (amount: number, currencyCode: string) => {
@@ -24,8 +26,19 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   prices,
   gameStarted,
   currency,
-  isMobile
+  isMobile,
+  betPrice
 }) => {
+  // Add cleanup on unmount to prevent canvas reuse error
+  React.useEffect(() => {
+    return () => {
+      const charts = ChartJS.instances;
+      Object.keys(charts).forEach(key => {
+        charts[key].destroy();
+      });
+    };
+  }, []);
+
   return (
     <div style={{
       position: 'absolute',
@@ -53,7 +66,11 @@ export const GameBoard: React.FC<GameBoardProps> = ({
         <span>BTC:</span>
         {prices.length > 0 ? formatCurrency(prices[prices.length - 1].price, currency) : '-'}
       </BitcoinPrice>
-      <Line data={chartData(prices) as any} options={chartOptions as any} />
+      <Line 
+        data={chartData(prices, betPrice)}
+        options={chartOptions}
+        redraw={false}
+      />
     </div>
   );
 }; 

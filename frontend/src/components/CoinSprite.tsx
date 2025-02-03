@@ -1,24 +1,8 @@
-import styled, { keyframes } from 'styled-components';
+import styled, { keyframes, css } from 'styled-components';
 
 const spin = keyframes`
-  0% { background-position: 0px; }
-  100% { background-position: -120px; }
-`;
-
-export const WinningCoin = styled.div<{ startX: number; startY: number; endX: number; endY: number }>`
-  position: fixed;
-  width: 30px;
-  height: 30px;
-  background-image: url('/coin-sprite.png');
-  background-size: contain;
-  background-repeat: no-repeat;
-  pointer-events: none;
-  transform: translate(-50%, -50%);
-  
-  animation: ${({ startX, startY, endX, endY }) => `
-    ${moveCoin(startX, startY, endX, endY)} 1s cubic-bezier(0.175, 0.885, 0.32, 1.275),
-    ${spin} 0.3s linear infinite
-  `};
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to { transform: translate(-50%, -50%) rotate(360deg); }
 `;
 
 const moveCoin = (startX: number, startY: number, endX: number, endY: number) => keyframes`
@@ -28,10 +12,39 @@ const moveCoin = (startX: number, startY: number, endX: number, endY: number) =>
     transform: translate(-50%, -50%) scale(1);
     opacity: 1;
   }
+  50% {
+    left: ${(startX + endX) / 2}px;
+    top: ${Math.min(startY, endY) - 200}px;
+    transform: translate(-50%, -50%) scale(1.5);
+    opacity: 1;
+  }
   100% {
     left: ${endX}px;
     top: ${endY}px;
     transform: translate(-50%, -50%) scale(0.2);
     opacity: 0;
   }
+`;
+
+export const WinningCoin = styled.div<{ startX: number; startY: number; endX: number; endY: number }>`
+  position: fixed;
+  width: 40px;
+  height: 40px;
+  pointer-events: none;
+  z-index: 1000;
+  font-size: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  
+  &::before {
+    content: '🪙';
+    display: block;
+  }
+  
+  ${props => css`
+    animation: 
+      ${moveCoin(props.startX, props.startY, props.endX, props.endY)} 2s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+      ${spin} 1s linear infinite;
+  `}
 `; 

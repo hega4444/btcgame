@@ -18,85 +18,107 @@ const formatPrice = (price: number) => new Intl.NumberFormat('en-US', {
 }).format(price);
 
 export const checkBetStatus = async (betId: string) => {
-  const betsCollection = await getCollection('bets');
-  const objectId = new ObjectId(betId);
-  const bet = await betsCollection.findOne({ _id: objectId });
-
-  if (!bet || bet.status === 'completed') {
-    return null;
-  }
-
-  const now = new Date();
-  const betTime = new Date(bet.timestamp);
-  const betAge = now.getTime() - betTime.getTime();
-  
-  if (betAge >= BET_DURATION) {
-    const pricesCollection = await getCollection('prices');
-    const currentPrice = await pricesCollection
-      .find({ currency: bet.currency.toLowerCase() })
-      .sort({ timestamp: -1 })
-      .limit(1)
-      .toArray();
-
-    if (!currentPrice.length) {
-      throw new Error('No current price available');
+  try {
+    let cleanBetId = betId.trim();
+    if (!ObjectId.isValid(cleanBetId)) {
+      return null;
     }
 
-    const finalPrice = currentPrice[0].price;
-    const priceChange = finalPrice - bet.priceAtBet;
-    const won = (bet.betType === 'up' && priceChange > 0) || 
-                (bet.betType === 'down' && priceChange < 0);
+    const objectId = new ObjectId(cleanBetId);
+    const betsCollection = await getCollection('bets');
+    const bet = await betsCollection.findOne({ _id: objectId });
 
-    // Update bet with result
-    await betsCollection.updateOne(
-      { _id: objectId },
-      { 
-        $set: { 
-          status: 'completed',
-          result: {
-            won,
-            finalPrice,
-            completedAt: new Date()
-          }
-        } 
-      }
-    );
+    if (!bet || bet.status === 'completed') {
+      return null;
+    }
 
-    // Update user statistics
-    const usersCollection = await getCollection('users');
-    const user = await usersCollection.findOne({ _id: new ObjectId(bet.clientId) });
-    const currentScore = user?.score || 0;
+    const now = new Date();
+    const betTime = new Date(bet.timestamp);
+    const betAge = now.getTime() - betTime.getTime();
     
-    await usersCollection.updateOne(
-      { _id: new ObjectId(bet.clientId) },
-      {
-        $inc: { 
-          totalBets: 1,
-          wins: won ? 1 : 0,
-          losses: won ? 0 : 1,
-          score: won ? 1 : (currentScore > 0 ? -1 : 0) // Only decrease score if it's > 0
-        }
+    if (betAge >= BET_DURATION) {
+      const pricesCollection = await getCollection('prices');
+      const currentPrice = await pricesCollection
+        .find({ currency: bet.currency.toLowerCase() })
+        .sort({ timestamp: -1 })
+        .limit(1)
+        .toArray();
+
+      if (!currentPrice.length) {
+        throw new Error('No current price available');
       }
-    );
 
-    // Create bet result
-    const betResult = {
-      betId: betId,
-      clientId: bet.clientId,
-      won,
-      profit: won ? 1 : -1,
-      initialPrice: bet.priceAtBet,
-      finalPrice,
-      timestamp: new Date()
-    };
+      const finalPrice = currentPrice[0].price;
+      const priceChange = finalPrice - bet.priceAtBet;
+      
+      // Use FORCE_ALTERNATE if enabled, otherwise use real price comparison
+      let won;
+      if (FORCE_ALTERNATE) {
+        won = !lastWasWin; // Alternate between win/lose
+        lastWasWin = won;  // Update for next bet
+      } else {
+        won = (bet.betType === 'up' && priceChange > 0) || 
+              (bet.betType === 'down' && priceChange < 0);
+      }
 
-    const resultsCollection = await getCollection('betResults');
-    await resultsCollection.insertOne(betResult);
+      console.log(`🎲 Bet Result: ${bet.betType.toUpperCase()} ${won ? '✅' : '❌'} | Initial: $${bet.priceAtBet.toFixed(2)} → Final: $${finalPrice.toFixed(2)} | Change: ${priceChange > 0 ? '+' : ''}${priceChange.toFixed(2)} ${FORCE_ALTERNATE ? '(Forced Alternate)' : ''}`);
 
-    return betResult;
+      // Update bet with result
+      await betsCollection.updateOne(
+        { _id: objectId },
+        { 
+          $set: { 
+            status: 'completed',
+            result: {
+              won,
+              finalPrice,
+              completedAt: new Date()
+            }
+          } 
+        }
+      );
+
+      // Update user statistics
+      const usersCollection = await getCollection('users');
+      
+      // Don't try to convert clientId to ObjectId, use it directly
+      const user = await usersCollection.findOne({ clientId: bet.clientId });
+      const currentScore = user?.score || 0;
+      
+      await usersCollection.updateOne(
+        { clientId: bet.clientId }, // Use clientId directly
+        {
+          $inc: { 
+            totalBets: 1,
+            wins: won ? 1 : 0,
+            losses: won ? 0 : 1,
+            score: won ? 1 : (currentScore > 0 ? -1 : 0)
+          }
+        }
+      );
+
+      // Create bet result
+      const betResult = {
+        betId: betId,
+        clientId: bet.clientId,
+        won,
+        profit: won ? 1 : -1,
+        initialPrice: bet.priceAtBet,
+        finalPrice,
+        timestamp: new Date()
+      };
+
+      const resultsCollection = await getCollection('betResults');
+      await resultsCollection.insertOne(betResult);
+
+      return betResult;
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Error in checkBetStatus:', error);
+    return null;
   }
-
-  return null;
 };
 
 export const handler: APIGatewayProxyHandler = async (event) => {
@@ -107,7 +129,67 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     if (!betId) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: 'Missing betId' })
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        },
+        body: JSON.stringify({ 
+          error: 'Missing betId',
+          status: 'completed',
+          result: null
+        })
+      };
+    }
+
+    // Validate betId format and try to clean it
+    let cleanBetId = betId.trim();
+    if (cleanBetId.length !== 24) {
+      return {
+        statusCode: 400,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        },
+        body: JSON.stringify({ 
+          error: `Invalid betId length: ${cleanBetId.length}`,
+          status: 'completed',
+          result: null
+        })
+      };
+    }
+
+    // Additional validation for hex format
+    if (!/^[0-9a-fA-F]{24}$/.test(cleanBetId)) {
+      return {
+        statusCode: 400,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        },
+        body: JSON.stringify({ 
+          error: 'Invalid betId format (not hex)',
+          status: 'completed',
+          result: null
+        })
+      };
+    }
+
+    // Try to create ObjectId
+    let objectId;
+    try {
+      objectId = new ObjectId(cleanBetId);
+    } catch (error) {
+      return {
+        statusCode: 400,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        },
+        body: JSON.stringify({ 
+          error: 'Invalid betId format',
+          status: 'completed',
+          result: null
+        })
       };
     }
 
@@ -127,7 +209,6 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     // Get bet details
-    const objectId = new ObjectId(betId);
     const betsCollection = await getCollection('bets');
     const bet = await betsCollection.findOne({ _id: objectId });
 
@@ -157,7 +238,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     // Check if bet should be completed
-    const result = await checkBetStatus(betId);
+    const result = await checkBetStatus(cleanBetId);
     
     if (result) {
       return {

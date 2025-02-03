@@ -43,7 +43,7 @@ export const AudioButton: React.FC<AudioButtonProps> = ({
 
   return (
     <AudioButtonContainer
-      isMobile={isMobile}
+      $isMobile={isMobile}
       onClick={onClick}
     >
       <span>{isMusicPlaying ? '🔊' : '🔈'}</span>

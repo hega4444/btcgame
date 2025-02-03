@@ -35,6 +35,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // Create a new ObjectId first
     const betId = new ObjectId();
+    console.log('Generated betId:', betId.toString());
 
     // Create bet with the guaranteed _id and current timestamp
     const bet: Bet = {
@@ -59,6 +60,10 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     console.log(`🎲 New Bet: ${username} bet ${betType.toUpperCase()} on BTC/${currency.toUpperCase()} at ${formattedPrice}`);
     console.log(`   Timestamp: ${bet.timestamp.toISOString()}`); // Add timestamp to log
 
+    // Before returning
+    const returnBetId = betId.toString();
+    console.log('Returning betId to frontend:', returnBetId);
+
     return {
       statusCode: 200,
       headers: {
@@ -67,7 +72,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       },
       body: JSON.stringify({
         message: 'Bet placed successfully',
-        betId: betId.toString(),
+        betId: returnBetId,
         priceAtBet: bet.priceAtBet,
         timestamp: bet.timestamp
       })

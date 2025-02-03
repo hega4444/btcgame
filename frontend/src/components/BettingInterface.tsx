@@ -56,6 +56,7 @@ interface BettingInterfaceProps {
   onWin: () => void;
   gameStatsRef: React.RefObject<HTMLDivElement>;
   isMobile: boolean;
+  isMusicPlaying: boolean;
 }
 
 export const BettingInterface: React.FC<BettingInterfaceProps> = ({
@@ -80,6 +81,7 @@ export const BettingInterface: React.FC<BettingInterfaceProps> = ({
   onWin,
   gameStatsRef,
   isMobile,
+  isMusicPlaying,
 }) => {
   const [isCheckingStatus, setIsCheckingStatus] = React.useState(false);
   const [showWinMessage, setShowWinMessage] = React.useState(false);
@@ -114,7 +116,8 @@ export const BettingInterface: React.FC<BettingInterfaceProps> = ({
         priceAtBet: currentPrice,
       });
 
-      const betId = data.betId;
+      // Store the betId
+      setCurrentBetId(data.betId);
 
       // Store the new interval
       countdownIntervalRef.current = setInterval(() => {
@@ -124,7 +127,8 @@ export const BettingInterface: React.FC<BettingInterfaceProps> = ({
               clearInterval(countdownIntervalRef.current);
               countdownIntervalRef.current = null;
             }
-            checkBetStatus(betId);
+            // Trigger the status check
+            setIsCheckingStatus(true);
             return 0;
           }
           return prevTimer - 1;
@@ -135,6 +139,7 @@ export const BettingInterface: React.FC<BettingInterfaceProps> = ({
       console.error('Error placing bet:', error);
       setIsBetting(false);
       setCurrentBet(null);
+      setCurrentBetId(null);
       if (countdownIntervalRef.current) {
         clearInterval(countdownIntervalRef.current);
         countdownIntervalRef.current = null;
@@ -142,104 +147,128 @@ export const BettingInterface: React.FC<BettingInterfaceProps> = ({
     }
   };
 
-  const handleBetComplete = (result: BetResult) => {
+  const handleBetComplete = React.useCallback((result: BetResult) => {
     console.log('Handling bet completion:', result);
+    console.log('Result won:', result.won, typeof result.won);
 
-    // Set result first
     setShowWinMessage(true);
     setLastWasWin(result.won);
 
     if (result.won) {
-      // Calculate new score
       const newScore = score + result.profit;
       setScore(newScore);
       
-      // Play win sound
-      if (winSoundRef.current) {
-        winSoundRef.current.currentTime = 0;
-        winSoundRef.current.play().catch(console.error);
+      if (isMusicPlaying && winSoundRef.current) {
+        winSoundRef.current.volume = 0.5;
+        const playPromise = winSoundRef.current.play();
+        if (playPromise) {
+          playPromise.catch(error => {
+            console.log('Sound play prevented:', error);
+          });
+        }
       }
       
-      // Show winning coin animation
       onWin();
-
-      // Animate score after a delay
-      setTimeout(() => {
-        updateScoreWithAnimation(newScore);
-      }, 500);
+      setTimeout(() => updateScoreWithAnimation(newScore), 500);
     } else {
-      // Handle loss
       const newScore = Math.max(0, score - Math.abs(result.profit));
       setScore(newScore);
       updateScoreWithAnimation(newScore);
       
-      // Play lose sound
-      if (loseSoundRef.current) {
-        loseSoundRef.current.currentTime = 0;
-        loseSoundRef.current.play().catch(console.error);
+      if (isMusicPlaying && loseSoundRef.current) {
+        loseSoundRef.current.volume = 0.5;
+        const playPromise = loseSoundRef.current.play();
+        if (playPromise) {
+          playPromise.catch(error => {
+            console.log('Sound play prevented:', error);
+          });
+        }
       }
     }
 
-    // Reset betting states after a delay
+    // Reset all states after delay
     setTimeout(() => {
       console.log('Resetting bet states');
       setShowWinMessage(false);
       setIsBetting(false);
       setCurrentBet(null);
+      setBetPrice(null);
       setTimer(null);
+      setCurrentBetId(null);
     }, 3000);
-  };
+  }, [score, setScore, updateScoreWithAnimation, onWin, winSoundRef, loseSoundRef, isMusicPlaying]);
 
-  const checkBetStatus = async (betId: string) => {
-    if (isCheckingStatus) return;
+  // Add state for storing betId
+  const [currentBetId, setCurrentBetId] = React.useState<string | null>(null);
 
-    try {
-      setIsCheckingStatus(true);
-      const data = await api.checkBetStatus(betId);
-      console.log('Got bet status:', data);
-      
-      if (data.status === 'completed') {
-        setIsCheckingStatus(false);
-        if (data.result) {
-          handleBetComplete(data.result);
+  // Use effect to handle bet status checking
+  React.useEffect(() => {
+    let isSubscribed = true;
+
+    const checkBetStatus = async (betId: string) => {
+      if (!isCheckingStatus) return;
+
+      try {
+        const data = await api.checkBetStatus(betId);
+        console.log('Got bet status:', data);
+        
+        if (!isSubscribed) return;
+
+        if (data.status === 'completed') {
+          console.log('🎲 Bet completed, calling handleBetComplete');
+          setIsCheckingStatus(false);
+          if (data.result) {
+            handleBetComplete(data.result);
+          } else {
+            handleBetComplete({
+              won: false,
+              profit: 1,
+              initialPrice: betPrice || 0,
+              finalPrice: prices[prices.length - 1]?.price || 0,
+              timestamp: new Date().toISOString()
+            });
+          }
         } else {
-          // If completed but no result, reset all betting states
-          console.log('Bet completed with no result, resetting states');
-          setIsBetting(false);
-          setCurrentBet(null);
-          if (countdownIntervalRef.current) {
-            clearInterval(countdownIntervalRef.current);
-            countdownIntervalRef.current = null;
-          }
-          if (statusCheckTimeoutRef.current) {
-            clearTimeout(statusCheckTimeoutRef.current);
-            statusCheckTimeoutRef.current = null;
-          }
-          return; // Stop checking this bet
+          // Schedule next check
+          statusCheckTimeoutRef.current = setTimeout(() => {
+            if (isSubscribed) {
+              checkBetStatus(betId);
+            }
+          }, 100);
         }
-      } else {
-        // If not completed, schedule next check
-        setIsCheckingStatus(false);
-        statusCheckTimeoutRef.current = setTimeout(() => {
-          checkBetStatus(betId);
-        }, 500);
+      } catch (error) {
+        console.error('Error checking bet status:', error);
+        if (isSubscribed) {
+          statusCheckTimeoutRef.current = setTimeout(() => {
+            checkBetStatus(betId);
+          }, 100);
+        }
       }
-    } catch (error) {
-      console.error('Error checking bet status:', error);
-      // Reset all states on error
-      setIsCheckingStatus(false);
-      setIsBetting(false);
-      setCurrentBet(null);
-      if (countdownIntervalRef.current) {
-        clearInterval(countdownIntervalRef.current);
-        countdownIntervalRef.current = null;
-      }
+    };
+
+    if (isCheckingStatus && currentBetId) {
+      checkBetStatus(currentBetId);
+    }
+
+    return () => {
+      isSubscribed = false;
       if (statusCheckTimeoutRef.current) {
         clearTimeout(statusCheckTimeoutRef.current);
-        statusCheckTimeoutRef.current = null;
       }
-    }
-  };
+    };
+  }, [isCheckingStatus, currentBetId, betPrice, prices, handleBetComplete]);
+
+  // Cleanup on unmount
+  React.useEffect(() => {
+    return () => {
+      if (statusCheckTimeoutRef.current) {
+        clearTimeout(statusCheckTimeoutRef.current);
+      }
+      if (countdownIntervalRef.current) {
+        clearInterval(countdownIntervalRef.current);
+      }
+    };
+  }, []);
 
   return gameStarted ? (
     <>
@@ -272,7 +301,7 @@ export const BettingInterface: React.FC<BettingInterfaceProps> = ({
             : '0 0 10px rgba(255, 255, 255, 0.1), inset 0 0 5px rgba(255, 255, 255, 0.05)',
           minHeight: '120px',
           minWidth: '300px',
-          display: (showWinMessage || timer === 0) ? 'none' : 'flex',
+          display: showWinMessage ? 'none' : 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',

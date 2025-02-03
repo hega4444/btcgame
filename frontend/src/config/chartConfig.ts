@@ -6,7 +6,8 @@ import {
   LineElement,
   Title,
   Tooltip,
-  Legend
+  Legend,
+  Filler
 } from 'chart.js';
 
 // Register ChartJS components
@@ -17,10 +18,17 @@ ChartJS.register(
   LineElement,
   Title,
   Tooltip,
-  Legend
+  Legend,
+  Filler
 );
 
-export const chartData = (prices: Array<{timestamp: string; price: number}>) => ({
+// Add this helper function at the top of the file
+const isCloseTo = (a: number, b: number | null | undefined, tolerance = 0.01) => {
+  if (b === null || b === undefined) return false;
+  return Math.abs(a - b) < tolerance;
+};
+
+export const chartData = (prices: Array<{timestamp: string; price: number}>, betPrice?: number | null) => ({
   labels: prices.map(p => new Date(p.timestamp).toLocaleTimeString()),
   datasets: [
     {
@@ -34,15 +42,21 @@ export const chartData = (prices: Array<{timestamp: string; price: number}>) => 
       shadowBlur: 20,
       shadowColor: 'rgba(255, 255, 0, 0.6)',
       borderDash: [],
-      pointBackgroundColor: 'rgb(255, 255, 0)',
-      pointBorderColor: 'rgba(255, 255, 0, 0.9)',
+      pointBackgroundColor: prices.map(p => 
+        isCloseTo(p.price, betPrice) ? 'rgba(255, 255, 255, 0.9)' : 'rgb(255, 255, 0)'
+      ),
+      pointBorderColor: prices.map(p => 
+        isCloseTo(p.price, betPrice) ? 'rgba(255, 255, 255, 1)' : 'rgba(255, 255, 0, 0.9)'
+      ),
+      pointRadius: prices.map(p => 
+        isCloseTo(p.price, betPrice) ? 8 : 5
+      ),
       pointHoverBackgroundColor: 'rgb(255, 255, 0)',
       pointHoverBorderColor: 'rgba(255, 255, 0, 1)',
-      pointRadius: 5,
       pointHoverRadius: 8,
       borderCapStyle: 'round',
       borderJoinStyle: 'round',
-    },
+    }
   ],
 });
 
@@ -67,6 +81,15 @@ export const chartOptions = {
       padding: 10,
       animation: {
         duration: 200
+      },
+      callbacks: {
+        label: function(context: any) {
+          const value = context.raw;
+          return `Price: ${new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'USD'
+          }).format(value)}`;
+        }
       }
     }
   },
@@ -77,20 +100,20 @@ export const chartOptions = {
         display: false,
       },
       ticks: {
-        color: 'rgba(255, 255, 255, 0.9)',
+        color: window.innerWidth < 768 ? 'rgba(255, 255, 255, 0.5)' : 'rgba(255, 255, 255, 0.9)',
         font: {
           family: "'Press Start 2P', cursive",
-          size: 10,
+          size: window.innerWidth < 768 ? 8 : 10,
           weight: 'bold',
         },
         maxRotation: 45,
         minRotation: 45,
-        padding: 10,
+        padding: window.innerWidth < 768 ? 5 : 10,
         callback: function(value: any, index: number, ticks: any[]) {
           if (window.innerWidth < 768) {
             return index === 0 || index === ticks.length - 1 ? this.getLabelForValue(value) : '';
           }
-          return this.getLabelForValue(value);
+          return index % 2 === 0 ? this.getLabelForValue(value) : '';
         },
       }
     },
@@ -107,6 +130,9 @@ export const chartOptions = {
           weight: 'bold',
         },
         padding: 15,
+        callback: function(value: any, index: number, ticks: any[]) {
+          return index % 2 === 0 ? value : '';
+        },
       }
     }
   },

@@ -1,7 +1,7 @@
 import styled from 'styled-components';
 
 interface AudioButtonContainerProps {
-  isMobile: boolean;
+  $isMobile: boolean;
 }
 
 export const AudioButtonContainer = styled.div<AudioButtonContainerProps>`
@@ -12,7 +12,7 @@ export const AudioButtonContainer = styled.div<AudioButtonContainerProps>`
   cursor: pointer;
   padding: 10px;
   background: rgba(0, 0, 0, 0.15);
-  border-radius: ${props => props.isMobile ? '50%' : '20px'};
+  border-radius: ${props => props.$isMobile ? '50%' : '20px'};
   display: flex;
   align-items: center;
   gap: 8px;
@@ -29,6 +29,6 @@ export const AudioButtonContainer = styled.div<AudioButtonContainerProps>`
   span.audio-text {
     font-size: 12px;
     opacity: 0.7;
-    display: ${props => props.isMobile ? 'none' : 'inline'};
+    display: ${props => props.$isMobile ? 'none' : 'inline'};
   }
 `; 
