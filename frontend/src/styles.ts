@@ -458,18 +458,22 @@ export const BitcoinPrice = styled.div`
   position: fixed;
   top: 60px;
   right: 20px;
-  color: #0d47a1; // Darker blue-green color
+  color: #0d47a1;
   font-family: 'Press Start 2P', cursive;
   font-size: 1.2em;
   z-index: 100;
   text-shadow: 
     2px 2px 4px rgba(0, 0, 0, 0.5),
-    0 0 10px rgba(13, 71, 161, 0.5); // Matching glow
+    0 0 10px rgba(13, 71, 161, 0.5);
   text-transform: uppercase;
   animation: ${glowText} 3s ease-in-out infinite;
   display: flex;
   align-items: center;
   gap: 8px;
+
+  @media (max-width: 768px) {
+    font-size: 0.8em !important;
+  }
 
   img {
     width: 24px;
@@ -505,7 +509,7 @@ export const LeaderboardDialog = styled(Dialog)`
 
 export const LeaderboardItem = styled.div`
   display: grid;
-  grid-template-columns: 40px 1fr 80px;
+  grid-template-columns: 40px minmax(0, 1fr) 80px;
   gap: 10px;
   color: rgb(97, 150, 29);
   font-family: 'Press Start 2P', cursive;
@@ -513,12 +517,39 @@ export const LeaderboardItem = styled.div`
   padding: 8px 0;
   border-bottom: 1px solid rgba(97, 150, 29, 0.3);
   
+  @media (max-width: 768px) {
+    font-size: 0.7em;
+  }
+  
   &:last-child {
     border-bottom: none;
   }
 
-  span:last-child {
+  // Rank number
+  & > span:first-child {
     text-align: right;
+  }
+
+  // Username
+  & > span:nth-child(2) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding: 0 8px;
+  }
+
+  // Score
+  & > span:last-child {
+    text-align: right;
+  }
+
+  &:hover > span:nth-child(2) {
+    overflow: visible;
+    white-space: normal;
+    word-break: break-all;
+    background: rgba(20, 30, 45, 0.95);
+    position: relative;
+    z-index: 1;
   }
 `;
 
