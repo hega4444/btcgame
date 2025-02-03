@@ -2,6 +2,23 @@ import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getCollection } from '../../shared/db';
 import { UserProfile } from '../../shared/types';
 
+/**
+ * User Registration Handler
+ * 
+ * Manages user registration and profile updates.
+ * Handles username validation and duplicate checking.
+ * 
+ * Features:
+ * - New user registration
+ * - Username updates
+ * - Duplicate username prevention
+ * - User profile initialization
+ * 
+ * Request Body:
+ * - username: User's display name
+ * - clientId: Unique client identifier
+ */
+
 export const handler: APIGatewayProxyHandler = async (event) => {
   try {
     const { username, clientId } = JSON.parse(event.body || '{}');

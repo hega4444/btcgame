@@ -8,6 +8,25 @@ interface AudioButtonProps {
   audioRef: React.RefObject<HTMLAudioElement | null>;
 }
 
+/**
+ * Audio Button Component
+ * 
+ * Controls game audio playback and provides visual feedback.
+ * Manages audio state and handles browser autoplay restrictions.
+ * 
+ * Features:
+ * - Audio toggle control
+ * - Visual state indication
+ * - Responsive design
+ * - Browser visibility handling
+ * 
+ * Props:
+ * - isMobile: Responsive layout flag
+ * - isMusicPlaying: Audio playback state
+ * - onClick: Toggle callback
+ * - audioRef: Reference to audio element
+ */
+
 export const AudioButton: React.FC<AudioButtonProps> = ({
   isMobile,
   isMusicPlaying,

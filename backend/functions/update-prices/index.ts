@@ -4,6 +4,23 @@ import { getCollection } from '../../shared/db';
 import { PriceData } from '../../shared/types';
 import { checkBetStatus } from '../get-bet-status';
 
+/**
+ * Price Update Handler
+ * 
+ * Fetches and stores current Bitcoin prices from external APIs.
+ * Handles price updates for multiple currencies and triggers bet processing.
+ * 
+ * Features:
+ * - Real-time price fetching from Binance
+ * - Multi-currency support (USD, EUR, GBP)
+ * - Automatic bet resolution
+ * - Price data storage
+ * - Cleanup of unprocessed bets
+ * 
+ * Environment Variables:
+ * - BET_TIMER_SECONDS: Duration for bet resolution
+ */
+
 // Helper function to round to 3 decimal places
 const roundToThree = (num: number): number => {
   return Number(Math.round(Number(num + 'e3')) + 'e-3');

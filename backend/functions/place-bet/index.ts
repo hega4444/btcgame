@@ -3,6 +3,24 @@ import { getCollection } from '../../shared/db';
 import { Bet } from '../../shared/types';
 import { ObjectId } from 'mongodb';
 
+/**
+ * Bet Placement Handler
+ * 
+ * Processes new bet placements and initializes bet tracking.
+ * Validates bet parameters and records initial conditions.
+ * 
+ * Features:
+ * - Bet validation
+ * - Price snapshot recording
+ * - Bet tracking initialization
+ * - User verification
+ * 
+ * Request Body:
+ * - userId: User's identifier
+ * - currency: Betting currency
+ * - betType: 'up' or 'down'
+ */
+
 export const handler: APIGatewayProxyHandler = async (event) => {
   try {
     const { userId: clientId, currency, betType } = JSON.parse(event.body || '{}');

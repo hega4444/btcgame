@@ -26,6 +26,25 @@ const moveCoin = (startX: number, startY: number, endX: number, endY: number) =>
   }
 `;
 
+/**
+ * Coin Sprite Component
+ * 
+ * Animated coin sprite used for win celebrations.
+ * Provides styled components for coin animation effects.
+ * 
+ * Features:
+ * - Spinning animation
+ * - Parabolic movement
+ * - Scale transitions
+ * - Opacity fading
+ * 
+ * Props:
+ * - startX: Initial X position
+ * - startY: Initial Y position
+ * - endX: Final X position
+ * - endY: Final Y position
+ */
+
 export const WinningCoin = styled.div<{ startX: number; startY: number; endX: number; endY: number }>`
   position: fixed;
   width: 40px;

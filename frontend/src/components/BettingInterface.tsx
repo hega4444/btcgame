@@ -1,3 +1,29 @@
+/**
+ * Betting Interface Component
+ * 
+ * Manages the user betting interface and interaction with the betting system.
+ * Handles bet placement, timer countdown, and result display.
+ * 
+ * Features:
+ * - Up/Down betting controls
+ * - Countdown timer
+ * - Bet status checking
+ * - Win/Loss animations
+ * - Score updates
+ * - Sound effects
+ * 
+ * Props:
+ * - isBetting: Current betting state
+ * - currentBet: Active bet type
+ * - betPrice: Price at time of bet
+ * - timer: Countdown timer value
+ * - username: Current player's username
+ * - clientId: User's unique identifier
+ * - currency: Selected currency
+ * - prices: Price history data
+ * - Various callback functions for state updates
+ */
+
 import * as React from 'react';
 import { api } from '../services/api';
 import { WinLoseMessage } from './WinLoseMessage';

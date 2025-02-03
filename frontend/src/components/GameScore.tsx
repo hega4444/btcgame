@@ -10,6 +10,27 @@ import {
 } from './styles/GameScore.styles';
 import { api } from '../services/api';
 
+/**
+ * Game Score Component
+ * 
+ * Displays and manages the player's score and username.
+ * Handles username editing and score animations.
+ * 
+ * Features:
+ * - Score display with animations
+ * - Username editing interface
+ * - Real-time score updates
+ * - Responsive design
+ * 
+ * Props:
+ * - username: Current player name
+ * - clientId: User identifier
+ * - scoreDigits: Array of score digits with animation states
+ * - gameStatsRef: Reference to stats container
+ * - onUsernameChange: Username update callback
+ * - isMobile: Responsive layout flag
+ */
+
 interface GameScoreProps {
   username: string;
   clientId: string;

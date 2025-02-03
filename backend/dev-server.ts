@@ -1,3 +1,19 @@
+/**
+ * Development Server Configuration
+ * 
+ * This file sets up a local development server that mimics the AWS Lambda environment.
+ * It provides endpoints that match the AWS API Gateway configuration and handles
+ * WebSocket connections for real-time price updates.
+ * 
+ * Key features:
+ * - Express server setup with CORS
+ * - Mock Lambda context and event creation
+ * - HTTPS support for production environment
+ * - WebSocket integration for price updates
+ * - Automatic database index creation
+ * - Graceful shutdown handling
+ */
+
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';

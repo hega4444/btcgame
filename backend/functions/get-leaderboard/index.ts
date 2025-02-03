@@ -1,3 +1,21 @@
+/**
+ * Leaderboard Handler
+ * 
+ * Retrieves and formats the global leaderboard data.
+ * Ranks players by score and provides player count.
+ * 
+ * Features:
+ * - Top player ranking
+ * - Score sorting
+ * - Total player count
+ * - Last update timestamp
+ * 
+ * Response:
+ * - leaderboard: Array of top players with scores
+ * - totalPlayers: Total number of registered players
+ * - lastUpdated: Timestamp of last update
+ */
+
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getCollection } from '../../shared/db';
 

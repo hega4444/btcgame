@@ -48,6 +48,28 @@ interface GameContainerProps {
   setUsername: (username: string) => void;
 }
 
+/**
+ * Game Container Component
+ * 
+ * Main container component that orchestrates the game's core functionality.
+ * Manages game state, betting interface, and score tracking.
+ * 
+ * Features:
+ * - Price chart display
+ * - Score management
+ * - Betting interface integration
+ * - Settings management
+ * - Animation handling
+ * - Responsive layout
+ * 
+ * Props:
+ * - prices: Bitcoin price history
+ * - gameStarted: Game state flag
+ * - currency: Selected currency
+ * - username: Player username
+ * - clientId: User identifier
+ * - Various UI state and callback props
+ */
 export const GameContainer: React.FC<GameContainerProps> = ({
   prices,
   gameStarted,

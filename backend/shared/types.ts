@@ -1,3 +1,19 @@
+/**
+ * Shared Type Definitions
+ * 
+ * Core type definitions used throughout the application.
+ * Defines interfaces for data models and API responses.
+ * 
+ * Types:
+ * - PriceData: Bitcoin price information
+ * - UserProfile: User account details
+ * - Bet: Betting transaction data
+ * - BetResult: Bet outcome information
+ * - BetStatusResponse: Bet status API response
+ * 
+ * Note: These types are shared between frontend and backend
+ */
+
 import { ObjectId } from 'mongodb';
 
 export interface PriceData {

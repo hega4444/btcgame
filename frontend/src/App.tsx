@@ -1,3 +1,23 @@
+/**
+ * Main Application Component
+ * 
+ * Root component that manages the overall application state and layout.
+ * Handles user authentication, game initialization, and core game mechanics.
+ * 
+ * Features:
+ * - User registration and authentication
+ * - Game state management
+ * - Audio control
+ * - Responsive design adaptation
+ * - Settings and leaderboard dialogs
+ * - Environment configuration
+ * 
+ * Environment Variables:
+ * - VITE_USE_MOCK_DATA: Toggle mock data mode
+ * - VITE_API_URL: Backend API endpoint
+ * - VITE_FORGET_USER: Enable user data reset
+ */
+
 import * as React from 'react';
 import {
   Container,

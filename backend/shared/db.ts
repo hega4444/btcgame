@@ -1,6 +1,25 @@
 import { MongoClient, Db } from 'mongodb';
 import dotenv from 'dotenv';
 
+/**
+ * Database Connection Management
+ * 
+ * Handles MongoDB connection pooling and provides utility functions for database operations.
+ * Implements connection caching to improve performance and reduce connection overhead.
+ * 
+ * Features:
+ * - Connection pooling and caching
+ * - Environment-specific database selection
+ * - Collection access utilities
+ * - Index management
+ * - Connection cleanup
+ * 
+ * Environment Variables:
+ * - MONGODB_URI: Connection string for MongoDB
+ * - MONGODB_DB_NAME: Database name
+ * - NODE_ENV: Environment mode (development/production)
+ */
+
 // Load environment variables from .env file in development
 if (process.env.NODE_ENV === 'development') {
   dotenv.config();

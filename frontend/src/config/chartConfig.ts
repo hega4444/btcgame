@@ -1,3 +1,22 @@
+/**
+ * Chart Configuration
+ * 
+ * Configuration for Chart.js price chart visualization.
+ * Defines chart appearance, behavior, and data formatting.
+ * 
+ * Features:
+ * - Line chart styling
+ * - Price data formatting
+ * - Responsive layout
+ * - Custom tooltips
+ * - Grid configuration
+ * - Animation settings
+ * 
+ * Dependencies:
+ * - Chart.js
+ * - react-chartjs-2
+ */
+
 import {
   Chart as ChartJS,
   CategoryScale,

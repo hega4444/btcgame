@@ -274,4 +274,21 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       body: JSON.stringify({ error: 'Failed to get bet status' })
     };
   }
-}; 
+};
+
+/**
+ * Bet Status Handler
+ * 
+ * Checks and updates the status of active bets.
+ * Determines bet outcomes and updates user scores.
+ * 
+ * Features:
+ * - Bet completion checking
+ * - Win/loss determination
+ * - Score updates
+ * - Result recording
+ * 
+ * Environment Variables:
+ * - BET_TIMER_SECONDS: Bet duration
+ * - FORCE_ALTERNATE_RESULTS: Debug mode for alternating results
+ */ 

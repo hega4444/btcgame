@@ -22,6 +22,25 @@ const formatCurrency = (amount: number, currencyCode: string) => {
   return formatter.format(amount);
 };
 
+/**
+ * Game Board Component
+ * 
+ * Renders the main game interface including the price chart.
+ * Manages the visual representation of Bitcoin price movements.
+ * 
+ * Features:
+ * - Real-time price chart
+ * - Current price display
+ * - Responsive layout
+ * - Betting price indicators
+ * 
+ * Props:
+ * - prices: Array of price data points
+ * - gameStarted: Game state flag
+ * - currency: Selected currency
+ * - isMobile: Responsive layout flag
+ * - betPrice: Current bet price marker
+ */
 export const GameBoard: React.FC<GameBoardProps> = ({
   prices,
   gameStarted,

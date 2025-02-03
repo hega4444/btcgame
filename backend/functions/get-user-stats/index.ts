@@ -1,6 +1,25 @@
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getCollection } from '../../shared/db';
 
+/**
+ * User Stats Handler
+ * 
+ * Retrieves individual user statistics and profile data.
+ * Provides user score and game history.
+ * 
+ * Features:
+ * - User profile lookup
+ * - Score tracking
+ * - Error handling for missing users
+ * 
+ * Parameters:
+ * - userId: User's unique identifier
+ * 
+ * Response:
+ * - username: User's display name
+ * - score: Current user score
+ */
+
 export const handler: APIGatewayProxyHandler = async (event) => {
   try {
     const clientId = event.pathParameters?.userId;

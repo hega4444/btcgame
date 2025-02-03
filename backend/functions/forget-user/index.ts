@@ -1,3 +1,23 @@
+/**
+ * User Deletion Handler
+ * 
+ * Handles user data deletion requests.
+ * Removes all user-related data from the system.
+ * 
+ * Features:
+ * - Complete user data removal
+ * - Bet history cleanup
+ * - Results cleanup
+ * - Privacy compliance
+ * 
+ * Parameters:
+ * - clientId: User identifier to be removed
+ * 
+ * Security:
+ * - Validates user existence
+ * - Ensures complete data removal
+ */
+
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { getCollection } from '../../shared/db';
 import { MongoClient } from 'mongodb';
