@@ -19,18 +19,23 @@ export interface UserProfile {
 
 export interface Bet {
   _id?: ObjectId;
-  userId: string;
+  clientId: string;  // Changed from userId
   currency: string;
   betType: 'up' | 'down';
   priceAtBet: number;
   timestamp: Date;
   status: 'active' | 'completed';
+  result?: {    // Add result field
+    won: boolean;
+    finalPrice: number;
+    completedAt: Date;
+  };
 }
 
 export interface BetResult {
   _id?: ObjectId;
   betId: string;
-  userId: string;
+  clientId: string;  // Changed from userId to clientId
   won: boolean;
   profit: number;
   initialPrice: number;

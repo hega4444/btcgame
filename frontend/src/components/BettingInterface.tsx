@@ -55,6 +55,7 @@ interface BettingInterfaceProps {
   gameStarted: boolean;
   onWin: () => void;
   gameStatsRef: React.RefObject<HTMLDivElement>;
+  isMobile: boolean;
 }
 
 export const BettingInterface: React.FC<BettingInterfaceProps> = ({
@@ -77,6 +78,8 @@ export const BettingInterface: React.FC<BettingInterfaceProps> = ({
   updateScoreWithAnimation,
   gameStarted,
   onWin,
+  gameStatsRef,
+  isMobile,
 }) => {
   const [isCheckingStatus, setIsCheckingStatus] = React.useState(false);
   const [showWinMessage, setShowWinMessage] = React.useState(false);
@@ -272,7 +275,8 @@ export const BettingInterface: React.FC<BettingInterfaceProps> = ({
           display: (showWinMessage || timer === 0) ? 'none' : 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          justifyContent: 'center'
+          justifyContent: 'center',
+          fontSize: isMobile ? '10px' : '16px',
         }}
         onMouseEnter={() => setIsBetBoxHovered(true)}
         onMouseLeave={() => setIsBetBoxHovered(false)}
@@ -280,7 +284,7 @@ export const BettingInterface: React.FC<BettingInterfaceProps> = ({
         <div style={{
           color: '#fff5d4',
           fontFamily: "'Press Start 2P', cursive",
-          fontSize: '16px',
+          fontSize: isMobile ? '8px' : '12px',
           marginBottom: '15px',
           textAlign: 'center',
           textShadow: '2px 2px 0px rgba(0,0,0,0.5)'
@@ -290,7 +294,7 @@ export const BettingInterface: React.FC<BettingInterfaceProps> = ({
               <div style={{
                 color: '#fff5d4',
                 fontFamily: "'Press Start 2P', cursive",
-                fontSize: '12px',
+                fontSize: isMobile ? '8px' : '12px',
                 textAlign: 'center',
                 marginBottom: '10px'
               }}>
@@ -300,7 +304,7 @@ export const BettingInterface: React.FC<BettingInterfaceProps> = ({
               <div style={{
                 color: getTimerColor(timer || 0),
                 fontFamily: "'Press Start 2P', cursive",
-                fontSize: '24px',
+                fontSize: isMobile ? '16px' : '24px',
                 textShadow: '2px 2px 0px rgba(0,0,0,0.5)',
                 transition: 'color 0.3s ease'
               }}>
@@ -328,7 +332,7 @@ export const BettingInterface: React.FC<BettingInterfaceProps> = ({
               }}
               style={{
                 padding: '10px 30px',
-                fontSize: '14px',
+                fontSize: isMobile ? '10px' : '14px',
                 fontFamily: "'Press Start 2P', cursive",
                 backgroundColor: '#4CAF50',
                 color: 'white',
@@ -353,7 +357,7 @@ export const BettingInterface: React.FC<BettingInterfaceProps> = ({
               }}
               style={{
                 padding: '10px 30px',
-                fontSize: '14px',
+                fontSize: isMobile ? '10px' : '14px',
                 fontFamily: "'Press Start 2P', cursive",
                 backgroundColor: '#f44336',
                 color: 'white',

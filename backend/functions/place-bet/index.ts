@@ -5,9 +5,9 @@ import { ObjectId } from 'mongodb';
 
 export const handler: APIGatewayProxyHandler = async (event) => {
   try {
-    const { userId, currency, betType } = JSON.parse(event.body || '{}');
+    const { userId: clientId, currency, betType } = JSON.parse(event.body || '{}');
     
-    if (!userId || !currency || !betType) {
+    if (!clientId || !currency || !betType) {
       return {
         statusCode: 400,
         body: JSON.stringify({ error: 'Missing required fields' })
@@ -30,7 +30,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // Get username for logging
     const usersCollection = await getCollection('users');
-    const user = await usersCollection.findOne({ clientId: userId });
+    const user = await usersCollection.findOne({ clientId });
     const username = user?.username || 'Unknown User';
 
     // Create a new ObjectId first
@@ -39,7 +39,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     // Create bet with the guaranteed _id and current timestamp
     const bet: Bet = {
       _id: betId,
-      userId,
+      clientId,
       currency,
       betType,
       priceAtBet: latestPrice.price,

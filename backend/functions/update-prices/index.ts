@@ -2,11 +2,45 @@ import { EventBridgeHandler } from 'aws-lambda';
 import axios from 'axios';
 import { getCollection } from '../../shared/db';
 import { PriceData } from '../../shared/types';
+import { checkBetStatus } from '../get-bet-status';
 
 // Helper function to round to 3 decimal places
 const roundToThree = (num: number): number => {
   return Number(Math.round(Number(num + 'e3')) + 'e-3');
 };
+
+const CLEANUP_THRESHOLD = 90000; // 1.5 minutes in milliseconds
+
+async function cleanupUnprocessedBets() {
+  try {
+    const betsCollection = await getCollection('bets');
+    const now = new Date();
+    
+    // Find active bets that are older than threshold
+    const unprocessedBets = await betsCollection
+      .find({
+        status: 'active',
+        timestamp: { 
+          $lt: new Date(now.getTime() - CLEANUP_THRESHOLD) 
+        }
+      })
+      .toArray();
+
+    console.log(`Found ${unprocessedBets.length} unprocessed bets to cleanup`);
+
+    // Process each unprocessed bet
+    for (const bet of unprocessedBets) {
+      try {
+        await checkBetStatus(bet._id.toString());
+        console.log(`Cleaned up bet ${bet._id}`);
+      } catch (error) {
+        console.error(`Failed to cleanup bet ${bet._id}:`, error);
+      }
+    }
+  } catch (error) {
+    console.error('Error in cleanupUnprocessedBets:', error);
+  }
+}
 
 export const handler: EventBridgeHandler<'Scheduled Event', any, void> = async () => {
   try {
@@ -54,6 +88,9 @@ export const handler: EventBridgeHandler<'Scheduled Event', any, void> = async (
     // Log only USD price
     const time = new Date().toLocaleTimeString();
     console.log('\x1b[32m%s\x1b[0m', `[${time}] BTC price updated in DB (${priceUSD.toFixed(3)} USD)`);
+
+    // Add cleanup after price update
+    await cleanupUnprocessedBets();
 
   } catch (error) {
     console.error('Error updating prices:', error);

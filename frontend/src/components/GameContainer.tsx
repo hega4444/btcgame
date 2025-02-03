@@ -195,7 +195,15 @@ export const GameContainer: React.FC<GameContainerProps> = ({
               onUsernameChange={handleUsernameChange}
             />
 
-            <TopButton onClick={onLeaderboardClick} style={{ color: '#2e7d32' }}>
+            <TopButton 
+              onClick={onLeaderboardClick} 
+              style={{ 
+                color: '#2e7d32',
+                fontSize: isMobile ? '10px' : '14px',
+                top: isMobile ? '35px' : '50px',
+                right: '10px'
+              }}
+            >
               TOP 10 <br />PLAYERS
             </TopButton>
 

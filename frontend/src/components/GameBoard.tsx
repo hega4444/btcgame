@@ -43,11 +43,12 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     }}>
       <BitcoinPrice style={{
         position: 'absolute',
-        top: isMobile ? '20px' : '-10px',
-        right: isMobile ? '10px' : '20px',
+        top: isMobile ? '30px' : '10px',
+        right: '10px',
         zIndex: 2,
         opacity: gameStarted ? 1 : 0,
         transition: 'opacity 0.5s ease',
+        fontSize: isMobile ? '10px' : '16px'
       }}>
         <span>BTC:</span>
         {prices.length > 0 ? formatCurrency(prices[prices.length - 1].price, currency) : '-'}

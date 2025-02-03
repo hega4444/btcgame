@@ -20,6 +20,7 @@ interface GameScoreProps {
   }>;
   gameStatsRef: React.RefObject<HTMLDivElement>;
   onUsernameChange: (newUsername: string) => void;
+  isMobile: boolean;
 }
 
 export const GameScore: React.FC<GameScoreProps> = ({
@@ -27,7 +28,8 @@ export const GameScore: React.FC<GameScoreProps> = ({
   clientId,
   scoreDigits,
   gameStatsRef,
-  onUsernameChange
+  onUsernameChange,
+  isMobile
 }) => {
   const [isEditing, setIsEditing] = React.useState(false);
   const [editedUsername, setEditedUsername] = React.useState(username);
@@ -90,9 +92,36 @@ export const GameScore: React.FC<GameScoreProps> = ({
   };
 
   return (
-    <GameStats ref={gameStatsRef}>
-      <div style={playerStyle}>
-        <span>Player: </span>
+    <GameStats 
+      ref={gameStatsRef} 
+      style={{
+        position: 'absolute',
+        top: '5px',
+        right: '10px',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'flex-end',
+        gap: '3px',
+        fontSize: isMobile ? '7px' : '16px'
+      }}
+    >
+      {/* Player section */}
+      <div style={{
+        position: 'absolute',
+        left: '10px',
+        marginLeft: '-10px',
+        fontSize: isMobile ? '1px' : '16px',
+        color: '#2e7d32'
+      }}>
+        {/* Player label */}
+        <div style={{ 
+          marginBottom: isMobile ? '4px' : '0',
+          color: '#2e7d32',
+          fontSize: isMobile ? '5px' : '16px'
+        }}>
+          Player:
+        </div>
+        {/* Username section */}
         {isEditing ? (
           <input
             ref={inputRef}
@@ -101,27 +130,46 @@ export const GameScore: React.FC<GameScoreProps> = ({
             onChange={(e) => setEditedUsername(e.target.value)}
             onBlur={handleUsernameSubmit}
             onKeyDown={handleKeyDown}
-            style={usernameInput}
+            style={{
+              ...usernameInput,
+              fontSize: isMobile ? '7px' : '16px',
+              marginLeft: isMobile ? '5px' : '0',
+              display: 'block'
+            }}
             maxLength={20}
           />
         ) : (
-          <span 
+          <div 
             onClick={handleUsernameClick}
-            style={{ cursor: 'pointer', textDecoration: 'underline' }}
+            style={{ 
+              cursor: 'pointer', 
+              textDecoration: 'underline',
+              marginLeft: isMobile ? '5px' : '0',
+              display: 'block',
+              marginTop: isMobile ? '2px' : '0',
+              color: '#2e7d32',
+              fontSize: isMobile ? '7px' : '16px'
+            }}
           >
             {username}
-          </span>
+          </div>
         )}
       </div>
-      <div style={scoreContainer(scoreDigits[0]?.isAnimating)}>
-        <span style={scoreLabel(scoreDigits[0]?.isAnimating)}>
-          Score:
-        </span>
+
+      {/* Score section */}
+      <div style={{
+        ...scoreContainer(scoreDigits[0]?.isAnimating),
+        fontSize: isMobile ? '7px' : '16px'
+      }}>
+        <span style={scoreLabel()}>Score:</span>
         <div style={digitsContainer}>
           {scoreDigits.map((digit, index) => (
             <span
               key={digit.key}
-              style={scoreDigit(digit.isAnimating, index)}
+              style={{
+                ...scoreDigit(),
+                fontSize: isMobile ? '7px' : '16px'
+              }}
             >
               {digit.value}
             </span>
