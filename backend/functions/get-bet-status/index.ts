@@ -62,6 +62,23 @@ export const checkBetStatus = async (betId: string) => {
       }
     );
 
+    // Update user statistics
+    const usersCollection = await getCollection('users');
+    const user = await usersCollection.findOne({ _id: new ObjectId(bet.clientId) });
+    const currentScore = user?.score || 0;
+    
+    await usersCollection.updateOne(
+      { _id: new ObjectId(bet.clientId) },
+      {
+        $inc: { 
+          totalBets: 1,
+          wins: won ? 1 : 0,
+          losses: won ? 0 : 1,
+          score: won ? 1 : (currentScore > 0 ? -1 : 0) // Only decrease score if it's > 0
+        }
+      }
+    );
+
     // Create bet result
     const betResult = {
       betId: betId,
