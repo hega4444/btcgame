@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import * as React from 'react';
 import {
   Container,
   Dialog,
@@ -45,44 +45,46 @@ interface LeaderboardEntry {
 }
 
 const App: React.FC = () => {
-  const [showDialog, setShowDialog] = useState(false);
-  const [username, setUsername] = useState('');
-  const [hasAccepted, setHasAccepted] = useState(false);
-  const [gameStarted, setGameStarted] = useState(false);
-  const [showPlayButton, setShowPlayButton] = useState(true);
-  const [showLeaderboard, setShowLeaderboard] = useState(false);
-  const [prices, setPrices] = useState<PriceData[]>([]);
-  const usernameInputRef = useRef<HTMLInputElement>(null);
+  const [showDialog, setShowDialog] = React.useState(false);
+  const [username, setUsername] = React.useState('');
+  const [hasAccepted, setHasAccepted] = React.useState(false);
+  const [gameStarted, setGameStarted] = React.useState(false);
+  const [showPlayButton, setShowPlayButton] = React.useState(true);
+  const [showLeaderboard, setShowLeaderboard] = React.useState(false);
+  const [prices, setPrices] = React.useState<PriceData[]>([]);
+  const usernameInputRef = React.useRef<HTMLInputElement>(null);
 
   // Add new state for audio
-  const [isMusicPlaying, setIsMusicPlaying] = useState(true);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const winSoundRef = useRef<HTMLAudioElement>(new Audio('/assets/coin_c_02-102844.mp3'));
-  const loseSoundRef = useRef<HTMLAudioElement>(new Audio('/assets/violin-lose-4-185125.mp3'));
+  const [isMusicPlaying, setIsMusicPlaying] = React.useState(true);
+  const audioRef = React.useRef<HTMLAudioElement | null>(null);
+  const winSoundRef = React.useRef<HTMLAudioElement>(new Audio('/assets/coin_c_02-102844.mp3'));
+  const loseSoundRef = React.useRef<HTMLAudioElement>(new Audio('/assets/violin-lose-4-185125.mp3'));
 
   // Add this near the top with other state declarations
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [isMobile, setIsMobile] = React.useState(window.innerWidth < 768);
 
   // Add these new states at the top with other states
-  const [showSettings, setShowSettings] = useState(false);
-  const [currency, setCurrency] = useState('USD');
+  const [showSettings, setShowSettings] = React.useState(false);
+  const [currency, setCurrency] = React.useState('USD');
 
   // Replace the mocked leaderboard data with state
-  const [leaderboardData, setLeaderboardData] = useState<LeaderboardEntry[]>([]);
-  const [isLoadingLeaderboard, setIsLoadingLeaderboard] = useState(false);
+  const [leaderboardData, setLeaderboardData] = React.useState<LeaderboardEntry[]>([]);
+  const [isLoadingLeaderboard, setIsLoadingLeaderboard] = React.useState(false);
 
   // Add state for clientId if not already present
-  const [clientId] = useState(() => {
+  const [clientId] = React.useState(() => {
     const saved = localStorage.getItem('btcGameClientId');
     if (saved) return saved;
     
-    const newId = crypto.randomUUID();
+    const newId = Math.random().toString(36).substring(2) + 
+                  Date.now().toString(36) + 
+                  Math.random().toString(36).substring(2);
     localStorage.setItem('btcGameClientId', newId);
     return newId;
   });
 
   // Add this effect to handle window resizing
-  useEffect(() => {
+  React.useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth < 768);
     };
@@ -91,7 +93,7 @@ const App: React.FC = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  useEffect(() => {
+  React.useEffect(() => {
     const shouldForgetUser = import.meta.env.VITE_FORGET_USER === 'true';
     
     // If FORGET_USER is true, clear localStorage
@@ -113,7 +115,7 @@ const App: React.FC = () => {
   }, []);
 
   // Update the price fetching function
-  const fetchPrices = useCallback(async () => {
+  const fetchPrices = React.useCallback(async () => {
     try {
       const newPrices = await api.fetchPrices(currency);
       setPrices(prev => {
@@ -125,14 +127,14 @@ const App: React.FC = () => {
     }
   }, [currency]);
 
-  useEffect(() => {
+  React.useEffect(() => {
     fetchPrices();
     const interval = setInterval(fetchPrices, 15000);
 
     return () => clearInterval(interval);
   }, [fetchPrices]);
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (prices === mockPrices) {
       const updateMockPrices = () => {
         const lastPrice = prices[prices.length - 1].price;
@@ -205,7 +207,7 @@ const App: React.FC = () => {
   };
 
   // Memoize the username change handler
-  const handleUsernameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleUsernameChange = React.useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setUsername(e.target.value);
   }, []);
 
@@ -217,7 +219,7 @@ const App: React.FC = () => {
   };
 
   // Update the audio initialization useEffect
-  useEffect(() => {
+  React.useEffect(() => {
     const initAndPlayAudio = async () => {
       if (!audioRef.current) {
         audioRef.current = new Audio('/assets/little-slimex27s-adventure-151007.mp3');
@@ -264,7 +266,7 @@ const App: React.FC = () => {
     };
   }, []); // Empty dependency array is fine here as we only want this to run once on mount
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (winSoundRef.current) winSoundRef.current.volume = 0.4;
     if (loseSoundRef.current) loseSoundRef.current.volume = 0.3;
   }, []);

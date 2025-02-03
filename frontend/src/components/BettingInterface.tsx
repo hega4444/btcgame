@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import * as React from 'react';
 import { api } from '../services/api';
 import { WinLoseMessage } from './WinLoseMessage';
 
@@ -78,12 +78,12 @@ export const BettingInterface: React.FC<BettingInterfaceProps> = ({
   gameStarted,
   onWin,
 }) => {
-  const [isCheckingStatus, setIsCheckingStatus] = useState(false);
-  const [showWinMessage, setShowWinMessage] = useState(false);
-  const [lastWasWin, setLastWasWin] = useState(true);
-  const [isBetBoxHovered, setIsBetBoxHovered] = useState(false);
-  const statusCheckTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [isCheckingStatus, setIsCheckingStatus] = React.useState(false);
+  const [showWinMessage, setShowWinMessage] = React.useState(false);
+  const [lastWasWin, setLastWasWin] = React.useState(true);
+  const [isBetBoxHovered, setIsBetBoxHovered] = React.useState(false);
+  const statusCheckTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const countdownIntervalRef = React.useRef<NodeJS.Timeout | null>(null);
 
   const handlePlaceBet = async (type: 'up' | 'down') => {
     try {

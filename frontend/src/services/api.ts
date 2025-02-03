@@ -38,7 +38,23 @@ export interface LeaderboardEntry {
   score: number;
 }
 
-export const api = {
+export interface API {
+  registerUser: (username: string, clientId?: string) => Promise<RegisterUserResponse>;
+  fetchPrices: (currency: string) => Promise<PriceData[]>;
+  placeBet: (params: {
+    userId: string;
+    username: string;
+    currency: string;
+    betType: 'up' | 'down';
+    priceAtBet: number;
+  }) => Promise<any>;
+  checkBetStatus: (betId: string) => Promise<BetStatusResponse>;
+  fetchLeaderboard: () => Promise<LeaderboardEntry[]>;
+  getUserStats: (clientId: string) => Promise<any>;
+  forgetUser: (clientId: string) => Promise<any>;
+}
+
+export const api: API = {
   async fetchPrices(currency: string): Promise<PriceData[]> {
     try {
       if (USE_MOCK_DATA) {

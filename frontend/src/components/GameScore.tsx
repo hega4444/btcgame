@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import * as React from 'react';
 import { GameStats } from '../styles';
 import {
   playerStyle,
@@ -29,17 +29,17 @@ export const GameScore: React.FC<GameScoreProps> = ({
   gameStatsRef,
   onUsernameChange
 }) => {
-  const [isEditing, setIsEditing] = useState(false);
-  const [editedUsername, setEditedUsername] = useState(username);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [isEditing, setIsEditing] = React.useState(false);
+  const [editedUsername, setEditedUsername] = React.useState(username);
+  const inputRef = React.useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (isEditing && inputRef.current) {
       inputRef.current.focus();
     }
   }, [isEditing]);
 
-  useEffect(() => {
+  React.useEffect(() => {
     setEditedUsername(username);
   }, [username]);
 

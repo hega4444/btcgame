@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import * as React from 'react';
 import { AudioButtonContainer } from './styles/AudioButton.styles';
 
 interface AudioButtonProps {
@@ -15,7 +15,7 @@ export const AudioButton: React.FC<AudioButtonProps> = ({
   audioRef
 }) => {
   // Handle visibility change
-  useEffect(() => {
+  React.useEffect(() => {
     const handleVisibilityChange = () => {
       if (audioRef.current) {
         if (document.hidden) {
@@ -31,7 +31,7 @@ export const AudioButton: React.FC<AudioButtonProps> = ({
   }, [isMusicPlaying, audioRef]);
 
   // Handle music playing state changes
-  useEffect(() => {
+  React.useEffect(() => {
     if (audioRef.current) {
       if (isMusicPlaying) {
         audioRef.current.play().catch(err => console.log('Play on state change failed:', err));

@@ -4,6 +4,9 @@ import dotenv from 'dotenv';
 import { Context, APIGatewayProxyResult, APIGatewayProxyEvent, EventBridgeEvent } from 'aws-lambda';
 import { ensureIndexes, closeConnection } from './shared/db';
 import { startWebSocket } from './functions/update-prices/websocket';
+import https from 'https';
+import fs from 'fs';
+import path from 'path';
 
 // Load environment variables before importing handlers
 dotenv.config();
@@ -201,17 +204,42 @@ app.post('/api/register-user', async (req, res) => {
   res.status(result.statusCode).json(JSON.parse(result.body));
 });
 
-// Start server and price updates
-app.listen(port, async () => {
+// Create HTTPS server if in production
+if (process.env.NODE_ENV === 'production' && process.env.HTTPS === 'true') {
   try {
-    await ensureIndexes();
-    console.log(`Development server running on port ${port}`);
-    startPriceUpdates();  // Back to scheduled updates
+    const sslOptions = {
+      key: fs.readFileSync(path.join(__dirname, '../ssl/nginx.key')),
+      cert: fs.readFileSync(path.join(__dirname, '../ssl/nginx.crt'))
+    };
+
+    const httpsServer = https.createServer(sslOptions, app);
+    httpsServer.listen(port, async () => {
+      try {
+        await ensureIndexes();
+        console.log(`HTTPS server running on port ${port}`);
+        startPriceUpdates();
+      } catch (error) {
+        console.error('Failed to start server:', error);
+        process.exit(1);
+      }
+    });
   } catch (error) {
-    console.error('Failed to start server:', error);
+    console.error('Failed to start HTTPS server:', error);
     process.exit(1);
   }
-});
+} else {
+  // Existing HTTP server code
+  app.listen(port, async () => {
+    try {
+      await ensureIndexes();
+      console.log(`Development server running on port ${port}`);
+      startPriceUpdates();
+    } catch (error) {
+      console.error('Failed to start server:', error);
+      process.exit(1);
+    }
+  });
+}
 
 // Add cleanup on server shutdown
 process.on('SIGINT', async () => {

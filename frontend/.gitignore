@@ -26,4 +26,9 @@ yarn-error.log*
 *.ntvs*
 *.njsproj
 *.sln
-*.sw? 
+*.sw?
+
+# SSL files
+ssl/
+*.key
+*.crt 

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo, useEffect, useCallback } from 'react';
+import * as React from 'react';
 import { GameContainer as StyledGameContainer, Box } from '../styles';
 import { GameBoard } from './GameBoard';
 import { GameScore } from './GameScore';
@@ -64,21 +64,21 @@ export const GameContainer: React.FC<GameContainerProps> = ({
   onLeaderboardClick,
   setUsername,
 }) => {
-  const [isBetting, setIsBetting] = useState(false);
-  const [currentBet, setCurrentBet] = useState<'up' | 'down' | null>(null);
-  const [betPrice, setBetPrice] = useState<number | null>(null);
-  const [timer, setTimer] = useState<number | null>(null);
-  const [scoreDigits, setScoreDigits] = useState<ScoreDigit[]>([{ value: '0', key: 0, isAnimating: false }]);
-  const [winningCoins, setWinningCoins] = useState<Array<{
+  const [isBetting, setIsBetting] = React.useState(false);
+  const [currentBet, setCurrentBet] = React.useState<'up' | 'down' | null>(null);
+  const [betPrice, setBetPrice] = React.useState<number | null>(null);
+  const [timer, setTimer] = React.useState<number | null>(null);
+  const [scoreDigits, setScoreDigits] = React.useState<ScoreDigit[]>([{ value: '0', key: 0, isAnimating: false }]);
+  const [winningCoins, setWinningCoins] = React.useState<Array<{
     id: number;
     startX: number;
     startY: number;
   }>>([]);
-  const gameStatsRef = useRef<HTMLDivElement>(null);
-  const [score, setScore] = useState(0);
-  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const gameStatsRef = React.useRef<HTMLDivElement>(null);
+  const [score, setScore] = React.useState(0);
+  const [showConfirmDialog, setShowConfirmDialog] = React.useState(false);
 
-  const updateScoreWithAnimation = useCallback((newScore: number) => {
+  const updateScoreWithAnimation = React.useCallback((newScore: number) => {
     console.log('🎯 Updating score with animation:', newScore);
     const digits = newScore.toString().split('');
     const now = Date.now();
@@ -100,7 +100,7 @@ export const GameContainer: React.FC<GameContainerProps> = ({
     }, 1000);
   }, []);
 
-  useEffect(() => {
+  React.useEffect(() => {
     const fetchUserScore = async () => {
       if (!gameStarted || !clientId) {
         console.log('⏳ Waiting for game to start or clientId', { gameStarted, clientId });
@@ -147,7 +147,7 @@ export const GameContainer: React.FC<GameContainerProps> = ({
     }
   };
 
-  const bubbles = useMemo(() => {
+  const bubbles = React.useMemo(() => {
     return Array.from({ length: 15 }, (_, i) => ({
       size: Math.random() * 50 + 20,
       duration: Math.random() * 10 + 15,
