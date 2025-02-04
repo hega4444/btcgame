@@ -32,6 +32,33 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       };
     }
 
+    // Get username for logging first
+    const usersCollection = await getCollection('users');
+    const user = await usersCollection.findOne({ clientId });
+    const username = user?.username || 'Unknown User';
+
+    // Check for active bets
+    const betsCollection = await getCollection('bets');
+    const activeBet = await betsCollection.findOne({
+      clientId,
+      status: 'active'
+    });
+
+    if (activeBet) {
+      console.log(`User ${clientId} (${username}) attempted to place ${betType} bet while having active bet`);
+      return {
+        statusCode: 400,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        },
+        body: JSON.stringify({ 
+          error: 'Active bet exists',
+          message: 'You still have active bets'
+        })
+      };
+    }
+
     // Get current price
     const pricesCollection = await getCollection('prices');
     const latestPrice = await pricesCollection.findOne(
@@ -45,11 +72,6 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         body: JSON.stringify({ error: 'No price data available' })
       };
     }
-
-    // Get username for logging
-    const usersCollection = await getCollection('users');
-    const user = await usersCollection.findOne({ clientId });
-    const username = user?.username || 'Unknown User';
 
     // Create a new ObjectId first
     const betId = new ObjectId();
@@ -66,7 +88,6 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       status: 'active'
     };
 
-    const betsCollection = await getCollection('bets');
     await betsCollection.insertOne(bet);
 
     // Log the bet placement with formatted price

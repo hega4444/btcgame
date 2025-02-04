@@ -129,11 +129,8 @@ export const BettingInterface: React.FC<BettingInterfaceProps> = ({
       }
 
       const currentPrice = prices[prices.length - 1]?.price || 0;
-      setBetPrice(currentPrice);
-      setIsBetting(true);
-      setCurrentBet(type);
-      setTimer(BET_TIMER / 1000);
-
+      
+      // Place bet first before setting any state
       const data = await api.placeBet({
         userId: clientId,
         username,
@@ -142,10 +139,16 @@ export const BettingInterface: React.FC<BettingInterfaceProps> = ({
         priceAtBet: currentPrice,
       });
 
+      // Only set states if bet was successful
+      setBetPrice(currentPrice);
+      setIsBetting(true);
+      setCurrentBet(type);
+      setTimer(BET_TIMER / 1000);
+      
       // Store the betId
       setCurrentBetId(data.betId);
 
-      // Store the new interval
+      // Start the countdown timer
       countdownIntervalRef.current = setInterval(() => {
         setTimer((prevTimer:any) => {
           if (prevTimer === null || prevTimer <= 1) {
@@ -163,9 +166,7 @@ export const BettingInterface: React.FC<BettingInterfaceProps> = ({
 
     } catch (error) {
       console.error('Error placing bet:', error);
-      setIsBetting(false);
-      setCurrentBet(null);
-      setCurrentBetId(null);
+      // Don't need to clear states since they weren't set yet
       if (countdownIntervalRef.current) {
         clearInterval(countdownIntervalRef.current);
         countdownIntervalRef.current = null;

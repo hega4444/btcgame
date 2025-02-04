@@ -26,7 +26,7 @@ const roundToThree = (num: number): number => {
   return Number(Math.round(Number(num + 'e3')) + 'e-3');
 };
 
-const CLEANUP_THRESHOLD = 90000; // 1.5 minutes in milliseconds
+const CLEANUP_THRESHOLD = (process.env.BET_TIMER_SECONDS ? parseInt(process.env.BET_TIMER_SECONDS) * 1000 : 5000) + 100; // BET_TIMER_SECONDS + 100ms
 
 async function cleanupUnprocessedBets() {
   try {
